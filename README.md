@@ -22,7 +22,13 @@ npm run dev
 Acesse `http://localhost:3000` (sem `.env.local`, o sistema funciona automaticamente em modo local interativo com dados salvos em `.data/rhbox-local.json`, usando os 3 perfis de demonstração).
 
 ## Como Conectar ao Supabase (Plano Gratuito)
-1. Crie um projeto no [Supabase](https://supabase.com).
-2. Abra o **SQL Editor**, cole o conteúdo integral de `supabase/schema.sql` e clique em **Run**.
-3. Copie `.env.example` para `.env.local` e preencha `NEXT_PUBLIC_SUPABASE_URL` e `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
-4. Reinicie a aplicação (ou configure as mesmas variáveis na Vercel para publicação online).
+1. Crie um projeto gratuito no [Supabase](https://supabase.com) (região recomendada: **South America / São Paulo**).
+2. Abra **SQL Editor → New query**, cole o conteúdo integral de `supabase/schema.sql` e clique em **Run**.
+   - Isso cria todas as tabelas, políticas RLS por secretaria, bucket privado `atestados` e o trigger automático de perfis.
+3. Em **Authentication → Users → Add user → Create new user**, cadastre o e-mail e a senha do primeiro administrador (marque **Auto Confirm User**).
+   - O primeiro usuário criado recebe automaticamente o perfil **`admin`**!
+4. Em **Settings → API** (ou **Project Settings → API Keys**) no Supabase, copie as 3 chaves e configure nas **Environment Variables** do projeto na Vercel (ou em `.env.local` no computador):
+   - `NEXT_PUBLIC_SUPABASE_URL`
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY` (chave pública / Publishable)
+   - `SUPABASE_SERVICE_ROLE_KEY` (chave secreta / Secret — permite criar novos usuários diretamente pelo módulo **Admin & Logs**)
+5. Faça **Redeploy** na Vercel (ou reinicie `npm run dev` localmente). A partir daí, o painel de demonstração local some automaticamente e todo o app opera no seu banco Supabase.

@@ -85,6 +85,7 @@ export interface Atestado {
   status: StatusAtestado;
   observacoes: string | null;
   anexo_nome: string | null;
+  anexo_path?: string | null;
   registrado_por: string;
   created_at: string;
 }

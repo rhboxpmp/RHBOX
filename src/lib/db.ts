@@ -1,5 +1,10 @@
 import crypto from "node:crypto";
-import { createSupabaseServer, isSupabaseConfigured } from "./supabase";
+import {
+  createSupabaseAdmin,
+  createSupabaseServer,
+  isSupabaseAdminConfigured,
+  isSupabaseConfigured,
+} from "./supabase";
 import { readLocalDb, writeLocalDb } from "./local-store";
 import type {
   ActivityLog,
@@ -348,6 +353,7 @@ export async function createAtestado(
     tipo: string;
     observacoes?: string;
     anexo_nome?: string | null;
+    anexo_file?: File | null;
     gerar_afastamento?: boolean;
   }
 ): Promise<{ ok: boolean; error?: string }> {
@@ -357,8 +363,43 @@ export async function createAtestado(
   }
 
   const id = crypto.randomUUID();
+  let anexoPath: string | null = null;
+  const anexoNome = input.anexo_file && input.anexo_file.size > 0
+    ? input.anexo_file.name
+    : input.anexo_nome || null;
+
   if (isSupabaseConfigured()) {
     const sb = await createSupabaseServer();
+
+    if (input.anexo_file && input.anexo_file.size > 0) {
+      if (input.anexo_file.size > 10 * 1024 * 1024) {
+        return { ok: false, error: "Arquivo excede o limite de 10 MB." };
+      }
+      const ext = (input.anexo_file.name.split(".").pop() || "pdf")
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, "");
+      if (!["pdf", "png", "jpg", "jpeg"].includes(ext)) {
+        return {
+          ok: false,
+          error: "Formato não permitido. Envie PDF, PNG ou JPEG.",
+        };
+      }
+      const buffer = Buffer.from(await input.anexo_file.arrayBuffer());
+      anexoPath = `${func.secretaria_id}/${id}.${ext}`;
+      const { error: upErr } = await sb.storage
+        .from("atestados")
+        .upload(anexoPath, buffer, {
+          contentType: input.anexo_file.type || "application/octet-stream",
+          upsert: false,
+        });
+      if (upErr) {
+        return {
+          ok: false,
+          error: `Erro ao enviar anexo para o Storage: ${upErr.message}`,
+        };
+      }
+    }
+
     const { error } = await sb.from("atestados").insert({
       id,
       funcionario_id: func.id,
@@ -370,7 +411,8 @@ export async function createAtestado(
       tipo: input.tipo.trim() || "Atestado Médico",
       status: "recebido",
       observacoes: input.observacoes?.trim() || null,
-      anexo_nome: input.anexo_nome || null,
+      anexo_nome: anexoNome,
+      anexo_path: anexoPath,
       registrado_por: user.nome,
     });
     if (error) return { ok: false, error: error.message };
@@ -387,7 +429,8 @@ export async function createAtestado(
       tipo: input.tipo.trim() || "Atestado Médico",
       status: "recebido",
       observacoes: input.observacoes?.trim() || null,
-      anexo_nome: input.anexo_nome || null,
+      anexo_nome: anexoNome,
+      anexo_path: null,
       registrado_por: user.nome,
       created_at: new Date().toISOString(),
     });
@@ -751,11 +794,63 @@ export async function createLocalOrSupabaseUser(
   }
 
   if (isSupabaseConfigured()) {
-    return {
-      ok: false,
-      error:
-        "Com Supabase conectado, cadastre o usuário no painel Auth do Supabase e vincule o perfil na tabela profiles.",
-    };
+    if (!isSupabaseAdminConfigured()) {
+      return {
+        ok: false,
+        error:
+          "Configure a variável SUPABASE_SERVICE_ROLE_KEY na Vercel para criar usuários diretamente pelo painel Admin (ou crie o usuário em Authentication -> Users no Supabase).",
+      };
+    }
+
+    if (!input.password || input.password.length < 6) {
+      return {
+        ok: false,
+        error: "A senha inicial deve conter no mínimo 6 caracteres.",
+      };
+    }
+
+    const admin = createSupabaseAdmin();
+    const { data: created, error: createErr } = await admin.auth.admin.createUser({
+      email,
+      password: input.password,
+      email_confirm: true,
+      user_metadata: {
+        nome: input.nome.trim(),
+        role: input.role,
+        secretaria_id: secId,
+      },
+    });
+
+    if (createErr || !created.user) {
+      return {
+        ok: false,
+        error: `Falha ao criar conta no Supabase Auth: ${createErr?.message || "erro desconhecido"}`,
+      };
+    }
+
+    const { error: profErr } = await admin.from("profiles").upsert({
+      id: created.user.id,
+      nome: input.nome.trim(),
+      email,
+      role: input.role,
+      secretaria_id: secId,
+      ativo: true,
+    });
+
+    if (profErr) {
+      return {
+        ok: false,
+        error: `Usuário criado no Auth, mas houve erro ao salvar perfil: ${profErr.message}`,
+      };
+    }
+
+    await recordActivityLog({
+      user: actor,
+      modulo: "admin",
+      acao: "Usuário criado no Supabase",
+      detalhes: `${input.nome.trim()} (${email}) — Perfil: ${input.role}`,
+    });
+    return { ok: true };
   }
 
   const db = readLocalDb();

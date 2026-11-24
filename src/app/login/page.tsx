@@ -20,7 +20,11 @@ const LOCAL_PROFILES = [
   },
 ];
 
-const SHOW_LOCAL_DEMO = !process.env.NEXT_PUBLIC_SUPABASE_URL;
+const SHOW_LOCAL_DEMO = !(
+  process.env.NEXT_PUBLIC_SUPABASE_URL &&
+  (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY)
+);
 
 export default function LoginPage() {
   const [state, formAction, isPending] = useActionState(loginAction, null);

@@ -43,10 +43,32 @@ export async function loginAction(
 
   if (isSupabaseConfigured()) {
     const sb = await createSupabaseServer();
-    const { error } = await sb.auth.signInWithPassword({ email, password });
-    if (error) {
+    const { data, error } = await sb.auth.signInWithPassword({ email, password });
+    if (error || !data.user) {
       return { error: "E-mail ou senha inválidos." };
     }
+
+    const { data: profile } = await sb
+      .from("profiles")
+      .select("nome, role, ativo")
+      .eq("id", data.user.id)
+      .maybeSingle();
+
+    if (profile && !profile.ativo) {
+      await sb.auth.signOut();
+      return { error: "Esta conta está desativada. Contate o Administrador." };
+    }
+
+    await recordActivityLog({
+      user: {
+        nome: profile?.nome || data.user.email || "Usuário",
+        role: (profile?.role as UserRole) || "rh_secretaria",
+      },
+      modulo: "auth",
+      acao: "Login realizado (Supabase)",
+      detalhes: `Acesso via ${data.user.email}`,
+    });
+
     redirect("/");
   }
 
@@ -164,6 +186,7 @@ export async function createAtestadoAction(formData: FormData) {
     tipo: String(formData.get("tipo") || "Atestado Médico"),
     observacoes: String(formData.get("observacoes") || ""),
     anexo_nome: anexoNome,
+    anexo_file: file && file.size > 0 ? file : null,
     gerar_afastamento: formData.get("gerar_afastamento") === "on",
   });
 

@@ -1,9 +1,13 @@
 -- ==============================================================================
--- RHBOX SIMPLES — Schema Único Enxuto para Supabase (Compatível com Plano Gratuito)
--- Prefeitura Municipal de Planalto — Bahia
+-- RHBOX — Schema Único Enxuto para Supabase (Compatível com Plano Gratuito)
 -- ==============================================================================
--- Como instalar: cole este arquivo inteiro no SQL Editor do Supabase e clique em RUN.
--- Perfis de acesso:
+-- COMO INSTALAR:
+--   1. No Supabase, abra "SQL Editor" -> "New query"
+--   2. Cole este arquivo inteiro e clique em "Run"
+--   3. Em "Authentication -> Users -> Add user", crie o primeiro usuário:
+--      ele receberá automaticamente o perfil ADMIN!
+--
+-- PERFIS DE ACESSO:
 --   - admin         : controle total do app, usuários/perfis, logs e suporte
 --   - rh_geral      : gestão completa de todas as secretarias
 --   - rh_secretaria : acesso restrito somente aos dados da própria secretaria
@@ -32,7 +36,7 @@ CREATE TABLE IF NOT EXISTS public.profiles (
     created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc', now())
 );
 
--- 3. FUNCIONÁRIOS (cadastro + vínculo + lotação unificados de forma direta)
+-- 3. FUNCIONÁRIOS (cadastro + vínculo + lotação)
 CREATE TABLE IF NOT EXISTS public.funcionarios (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     nome TEXT NOT NULL,
@@ -117,10 +121,80 @@ CREATE INDEX IF NOT EXISTS idx_ferias_secretaria ON public.ferias_afastamentos(s
 CREATE INDEX IF NOT EXISTS idx_ocorr_secretaria ON public.ocorrencias(secretaria_id, data_fato DESC);
 CREATE INDEX IF NOT EXISTS idx_logs_created ON public.activity_logs(created_at DESC);
 
+-- ==============================================================================
+-- TRIGGER AUTOMÁTICO DE PERFIL NO CADASTRO DE USUÁRIO (auth.users -> profiles)
+-- O 1º usuário criado no projeto vira automaticamente 'admin'!
+-- ==============================================================================
+CREATE OR REPLACE FUNCTION public.handle_new_auth_user()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+    v_has_any_profile BOOLEAN;
+    v_role TEXT;
+    v_nome TEXT;
+    v_sec_id UUID;
+BEGIN
+    SELECT EXISTS(SELECT 1 FROM public.profiles) INTO v_has_any_profile;
+
+    IF NOT v_has_any_profile THEN
+        v_role := 'admin';
+    ELSE
+        v_role := COALESCE(NEW.raw_user_meta_data->>'role', 'rh_secretaria');
+        IF v_role NOT IN ('admin', 'rh_geral', 'rh_secretaria') THEN
+            v_role := 'rh_secretaria';
+        END IF;
+    END IF;
+
+    v_nome := COALESCE(
+        NULLIF(TRIM(NEW.raw_user_meta_data->>'nome'), ''),
+        NULLIF(TRIM(NEW.raw_user_meta_data->>'full_name'), ''),
+        split_part(NEW.email, '@', 1)
+    );
+
+    BEGIN
+        v_sec_id := NULLIF(TRIM(COALESCE(NEW.raw_user_meta_data->>'secretaria_id', '')), '')::uuid;
+    EXCEPTION WHEN OTHERS THEN
+        v_sec_id := NULL;
+    END;
+
+    INSERT INTO public.profiles (id, nome, email, role, secretaria_id, ativo)
+    VALUES (NEW.id, v_nome, LOWER(NEW.email), v_role, v_sec_id, true)
+    ON CONFLICT (id) DO NOTHING;
+
+    RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created
+    AFTER INSERT ON auth.users
+    FOR EACH ROW EXECUTE FUNCTION public.handle_new_auth_user();
+
+-- Backfill seguro caso você já tenha criado o 1º usuário no Auth antes de rodar este SQL
+INSERT INTO public.profiles (id, nome, email, role, ativo)
+SELECT
+    u.id,
+    COALESCE(NULLIF(TRIM(u.raw_user_meta_data->>'nome'), ''), split_part(u.email, '@', 1)),
+    LOWER(u.email),
+    CASE
+        WHEN NOT EXISTS (SELECT 1 FROM public.profiles)
+             AND row_number() OVER (ORDER BY u.created_at) = 1
+        THEN 'admin'
+        ELSE 'rh_secretaria'
+    END,
+    true
+FROM auth.users u
+WHERE u.email IS NOT NULL
+  AND NOT EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = u.id)
+ON CONFLICT (id) DO NOTHING;
+
 -- Bucket privado único para anexos de atestados (compatível com Plano Gratuito 1 GB)
 INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 VALUES ('atestados', 'atestados', false, 10485760, ARRAY['application/pdf', 'image/png', 'image/jpeg'])
-ON CONFLICT (id) DO NOTHING;
+ON CONFLICT (id) DO UPDATE SET public = false;
 
 -- ==============================================================================
 -- RLS SIMPLIFICADO E SEGURO (admin / rh_geral / rh_secretaria)
@@ -149,50 +223,83 @@ RETURNS BOOLEAN LANGUAGE sql SECURITY DEFINER SET search_path = '' AS $$
         OR ((SELECT public.my_role()) = 'rh_secretaria' AND (SELECT public.my_secretaria_id()) = target_sec_id);
 $$;
 
--- Políticas de Secretarias
+-- Políticas de Secretarias (idempotentes)
+DROP POLICY IF EXISTS "sec_select" ON public.secretarias;
 CREATE POLICY "sec_select" ON public.secretarias FOR SELECT TO authenticated USING (true);
+
+DROP POLICY IF EXISTS "sec_manage" ON public.secretarias;
 CREATE POLICY "sec_manage" ON public.secretarias FOR ALL TO authenticated
     USING ((SELECT public.my_role()) IN ('admin', 'rh_geral'))
     WITH CHECK ((SELECT public.my_role()) IN ('admin', 'rh_geral'));
 
--- Políticas de Perfis (usuário vê o próprio; admin gerencia todos)
+-- Políticas de Perfis
+DROP POLICY IF EXISTS "prof_select" ON public.profiles;
 CREATE POLICY "prof_select" ON public.profiles FOR SELECT TO authenticated
     USING (id = (SELECT auth.uid()) OR (SELECT public.my_role()) = 'admin');
+
+DROP POLICY IF EXISTS "prof_admin" ON public.profiles;
 CREATE POLICY "prof_admin" ON public.profiles FOR ALL TO authenticated
     USING ((SELECT public.my_role()) = 'admin')
     WITH CHECK ((SELECT public.my_role()) = 'admin');
 
--- Políticas de Funcionários, Atestados, Férias/Afastamentos e Ocorrências (escopo por secretaria)
+-- Políticas de Funcionários, Atestados, Férias/Afastamentos e Ocorrências
+DROP POLICY IF EXISTS "func_scope" ON public.funcionarios;
 CREATE POLICY "func_scope" ON public.funcionarios FOR ALL TO authenticated
     USING ((SELECT public.can_access_secretaria(secretaria_id)))
     WITH CHECK ((SELECT public.can_access_secretaria(secretaria_id)));
 
+DROP POLICY IF EXISTS "atest_scope" ON public.atestados;
 CREATE POLICY "atest_scope" ON public.atestados FOR ALL TO authenticated
     USING ((SELECT public.can_access_secretaria(secretaria_id)))
     WITH CHECK ((SELECT public.can_access_secretaria(secretaria_id)));
 
+DROP POLICY IF EXISTS "ferias_scope" ON public.ferias_afastamentos;
 CREATE POLICY "ferias_scope" ON public.ferias_afastamentos FOR ALL TO authenticated
     USING ((SELECT public.can_access_secretaria(secretaria_id)))
     WITH CHECK ((SELECT public.can_access_secretaria(secretaria_id)));
 
+DROP POLICY IF EXISTS "ocorr_scope" ON public.ocorrencias;
 CREATE POLICY "ocorr_scope" ON public.ocorrencias FOR ALL TO authenticated
     USING ((SELECT public.can_access_secretaria(secretaria_id)))
     WITH CHECK ((SELECT public.can_access_secretaria(secretaria_id)));
 
--- Políticas de Logs de Suporte (qualquer autenticado grava; somente admin lê)
+-- Políticas de Logs de Suporte
+DROP POLICY IF EXISTS "logs_insert" ON public.activity_logs;
 CREATE POLICY "logs_insert" ON public.activity_logs FOR INSERT TO authenticated WITH CHECK (true);
+
+DROP POLICY IF EXISTS "logs_admin_select" ON public.activity_logs;
 CREATE POLICY "logs_admin_select" ON public.activity_logs FOR SELECT TO authenticated
     USING ((SELECT public.my_role()) = 'admin');
 
--- Storage bucket 'atestados' (somente usuários autenticados)
-CREATE POLICY "storage_atestados_all" ON storage.objects FOR ALL TO authenticated
-    USING (bucket_id = 'atestados')
-    WITH CHECK (bucket_id = 'atestados');
+-- Storage bucket 'atestados' (isolado por secretaria via pasta <secretaria_id>/<arquivo>)
+DROP POLICY IF EXISTS "storage_atestados_all" ON storage.objects;
+DROP POLICY IF EXISTS "storage_atestados_scope" ON storage.objects;
+CREATE POLICY "storage_atestados_scope" ON storage.objects FOR ALL TO authenticated
+    USING (
+        bucket_id = 'atestados'
+        AND (
+            (SELECT public.my_role()) IN ('admin', 'rh_geral')
+            OR (
+                (storage.foldername(name))[1] ~* '^[0-9a-f-]{36}$'
+                AND (SELECT public.can_access_secretaria(((storage.foldername(name))[1])::uuid))
+            )
+        )
+    )
+    WITH CHECK (
+        bucket_id = 'atestados'
+        AND (
+            (SELECT public.my_role()) IN ('admin', 'rh_geral')
+            OR (
+                (storage.foldername(name))[1] ~* '^[0-9a-f-]{36}$'
+                AND (SELECT public.can_access_secretaria(((storage.foldername(name))[1])::uuid))
+            )
+        )
+    );
 
--- Seed inicial opcional de secretarias de exemplo
+-- Seed inicial de secretarias de exemplo (pode renomear/editar depois no app)
 INSERT INTO public.secretarias (nome, sigla, responsavel) VALUES
-    ('Secretaria Municipal de Administração', 'SEMAD', 'Coordenação Geral'),
-    ('Secretaria Municipal de Saúde', 'SMS', 'Diretoria de Saúde'),
-    ('Secretaria Municipal de Educação', 'SMEC', 'Coordenação Pedagógica'),
-    ('Secretaria Municipal de Infraestrutura', 'SEINFRA', 'Diretoria de Obras')
+    ('Secretaria de Administração', 'SEMAD', 'Coordenação Geral'),
+    ('Secretaria de Saúde', 'SMS', 'Diretoria de Saúde'),
+    ('Secretaria de Educação', 'SMEC', 'Coordenação Pedagógica'),
+    ('Secretaria de Infraestrutura', 'SEINFRA', 'Diretoria de Obras')
 ON CONFLICT (sigla) DO NOTHING;

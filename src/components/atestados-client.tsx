@@ -155,10 +155,15 @@ export function AtestadosClient({
                   <td className="px-5 py-3.5">
                     <div>{a.tipo}</div>
                     {a.anexo_nome && (
-                      <div className="inline-flex items-center gap-1 text-[11px] text-[#667085] mt-0.5">
+                      <a
+                        href={`/api/atestados/${a.id}/anexo`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-[11px] text-[#0047B3] hover:underline font-medium mt-0.5"
+                      >
                         <Paperclip size={11} />
                         {a.anexo_nome}
-                      </div>
+                      </a>
                     )}
                   </td>
                   <td className="px-5 py-3.5">

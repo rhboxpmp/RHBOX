@@ -1,5 +1,6 @@
 "use client";
 
+import { useTransition } from "react";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
@@ -15,13 +16,14 @@ import {
   Plus,
   ArrowLeft,
 } from "lucide-react";
-import { logoutAction } from "@/app/actions";
+import { logoutAction, updateFuncionarioSituacaoAction } from "@/app/actions";
 import type { WorkspaceSnapshot } from "@/lib/workspace";
 import {
   OCORRENCIA_LABELS,
   ROLE_LABELS,
   SITUACAO_LABELS,
   VINCULO_LABELS,
+  type SituacaoFuncionario,
 } from "@/types/rh";
 import {
   useWorkspace,
@@ -202,6 +204,7 @@ function InstantWorkspaceInner() {
               movimentacoes={movimentacoes}
               ocorrencias={ocorrencias}
               onBack={() => navigate({ section: "funcionarios" })}
+              onMutated={refreshWorkspace}
             />
           )}
 
@@ -510,6 +513,7 @@ function FichaInstantView({
   movimentacoes,
   ocorrencias,
   onBack,
+  onMutated,
 }: {
   fichaId: string;
   funcionarios: WorkspaceSnapshot["funcionarios"];
@@ -517,7 +521,9 @@ function FichaInstantView({
   movimentacoes: WorkspaceSnapshot["movimentacoes"];
   ocorrencias: WorkspaceSnapshot["ocorrencias"];
   onBack: () => void;
+  onMutated?: () => Promise<void>;
 }) {
+  const [pending, startTransition] = useTransition();
   const func = funcionarios.find((f) => f.id === fichaId);
   if (!func) {
     return (
@@ -538,9 +544,17 @@ function FichaInstantView({
   const funcMovs = movimentacoes.filter((m) => m.funcionario_id === func.id);
   const funcOcorr = ocorrencias.filter((o) => o.funcionario_id === func.id);
 
+  function handleChangeSituacao(next: SituacaoFuncionario) {
+    if (!func || next === func.situacao) return;
+    startTransition(async () => {
+      const res = await updateFuncionarioSituacaoAction(func.id, next);
+      if (res.ok) await onMutated?.();
+    });
+  }
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <button
             type="button"
@@ -557,9 +571,31 @@ function FichaInstantView({
             </p>
           </div>
         </div>
-        <span className="px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-bold border border-emerald-200">
-          {SITUACAO_LABELS[func.situacao]}
-        </span>
+        <div className="flex items-center gap-2">
+          <label
+            htmlFor="ficha-situacao"
+            className="text-[11px] font-semibold text-[#667085]"
+          >
+            Situação:
+          </label>
+          <select
+            id="ficha-situacao"
+            value={func.situacao}
+            disabled={pending}
+            onChange={(e) =>
+              handleChangeSituacao(e.target.value as SituacaoFuncionario)
+            }
+            className="px-3 py-1.5 rounded-lg bg-white border border-[#D0D5DD] text-xs font-bold text-[#041A47] cursor-pointer disabled:opacity-60"
+          >
+            {(Object.keys(SITUACAO_LABELS) as SituacaoFuncionario[]).map(
+              (key) => (
+                <option key={key} value={key}>
+                  {SITUACAO_LABELS[key]}
+                </option>
+              )
+            )}
+          </select>
+        </div>
       </div>
 
       <div className="bg-white rounded-xl border border-[#E2E8F0] p-5 grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
