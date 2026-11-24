@@ -12,3 +12,7 @@ body {
   color: #1E293B;
   font-family: var(--font-sans);
 }
+
+.font-script {
+  font-family: "Dancing Script", "Segoe Script", "Brush Script MT", "Lucida Handwriting", cursive;
+}

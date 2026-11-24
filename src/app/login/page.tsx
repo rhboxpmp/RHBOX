@@ -33,8 +33,9 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#041A47] via-[#0B2B6B] to-[#0047B3] p-4">
-      <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl border border-white/20 overflow-hidden">
+    <div className="min-h-screen flex flex-col items-center justify-between bg-gradient-to-br from-[#041A47] via-[#0B2B6B] to-[#0047B3] px-4 py-8 gap-8">
+      <div className="flex-1 flex items-center justify-center w-full">
+        <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl border border-white/20 overflow-hidden">
         {/* Cabeçalho com a Logo Oficial RHBOX + Slogan em destaque */}
         <div className="bg-white px-6 pt-8 pb-6 border-b border-slate-100 text-center">
           <div className="mx-auto w-full">
@@ -151,6 +152,17 @@ export default function LoginPage() {
           )}
         </div>
       </div>
+      </div>
+
+      {/* Versículo na parte inferior sobre o fundo azul */}
+      <footer className="w-full max-w-3xl text-center px-4 pb-2">
+        <p className="font-script text-2xl sm:text-3xl md:text-[34px] leading-snug text-[#F6D365] drop-shadow-[0_2px_10px_rgba(0,0,0,0.4)]">
+          “Tudo quanto te vier à mão para fazer, faze-o conforme as tuas forças.”
+        </p>
+        <p className="mt-1.5 text-xs sm:text-sm font-semibold tracking-[0.2em] uppercase text-[#FCE7A2]/90">
+          Eclesiastes 9:10
+        </p>
+      </footer>
     </div>
   );
 }
