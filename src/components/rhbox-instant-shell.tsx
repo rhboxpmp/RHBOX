@@ -62,6 +62,7 @@ function InstantWorkspaceInner() {
     user,
     isLocalMode,
     secretarias,
+    secretariaResponsaveis,
     funcionarios,
     atestados,
     movimentacoes,
@@ -211,8 +212,14 @@ function InstantWorkspaceInner() {
           {route.section === "secretarias" && (
             <SecretariasClient
               secretarias={secretarias}
+              responsaveis={secretariaResponsaveis}
               countsBySec={countsBySec}
               userRole={user.role}
+              onOpenAdmin={
+                user.role === "admin"
+                  ? () => navigate({ section: "admin" })
+                  : undefined
+              }
               onMutated={refreshWorkspace}
             />
           )}

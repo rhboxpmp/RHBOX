@@ -4,6 +4,7 @@ import {
   listFuncionarios,
   listMovimentacoes,
   listOcorrencias,
+  listSecretariaResponsaveis,
   listSecretarias,
   listUsers,
 } from "@/lib/db";
@@ -15,6 +16,7 @@ import type {
   Funcionario,
   Ocorrencia,
   Secretaria,
+  SecretariaResponsavel,
   UserAccount,
 } from "@/types/rh";
 
@@ -22,6 +24,7 @@ export interface WorkspaceSnapshot {
   user: UserAccount;
   isLocalMode: boolean;
   secretarias: Secretaria[];
+  secretariaResponsaveis: SecretariaResponsavel[];
   funcionarios: Funcionario[];
   atestados: Atestado[];
   movimentacoes: FeriasAfastamento[];
@@ -35,6 +38,7 @@ export async function loadWorkspaceSnapshot(
 ): Promise<WorkspaceSnapshot> {
   const [
     secretarias,
+    secretariaResponsaveis,
     funcionarios,
     atestados,
     movimentacoes,
@@ -43,6 +47,7 @@ export async function loadWorkspaceSnapshot(
     logs,
   ] = await Promise.all([
     listSecretarias(),
+    listSecretariaResponsaveis(user),
     listFuncionarios(user),
     listAtestados(user),
     listMovimentacoes(user),
@@ -55,6 +60,7 @@ export async function loadWorkspaceSnapshot(
     user,
     isLocalMode: !isSupabaseConfigured(),
     secretarias,
+    secretariaResponsaveis,
     funcionarios,
     atestados,
     movimentacoes,

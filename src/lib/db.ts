@@ -14,6 +14,7 @@ import type {
   Funcionario,
   Ocorrencia,
   Secretaria,
+  SecretariaResponsavel,
   SituacaoFuncionario,
   StatusAtestado,
   StatusMovimentacao,
@@ -73,6 +74,50 @@ export async function listSecretarias(): Promise<Secretaria[]> {
     return (data || []) as Secretaria[];
   }
   return [...readLocalDb().secretarias].sort((a, b) => a.nome.localeCompare(b.nome));
+}
+
+export async function listSecretariaResponsaveis(
+  user: UserAccount
+): Promise<SecretariaResponsavel[]> {
+  if (isSupabaseConfigured()) {
+    const sb = isSupabaseAdminConfigured()
+      ? createSupabaseAdmin()
+      : await createSupabaseServer();
+    let q = sb
+      .from("profiles")
+      .select("id, nome, email, role, secretaria_id, ativo")
+      .not("secretaria_id", "is", null)
+      .order("nome");
+    if (user.role === "rh_secretaria" && user.secretaria_id) {
+      q = q.eq("secretaria_id", user.secretaria_id);
+    }
+    const { data } = await q;
+    return ((data || []) as Array<{
+      id: string;
+      nome: string;
+      email: string;
+      role: UserRole;
+      secretaria_id: string | null;
+      ativo: boolean;
+    }>)
+      .filter((p): p is SecretariaResponsavel => Boolean(p.secretaria_id));
+  }
+
+  return readLocalDb()
+    .users.filter(
+      (u) =>
+        Boolean(u.secretaria_id) &&
+        (user.role !== "rh_secretaria" || u.secretaria_id === user.secretaria_id)
+    )
+    .map((u) => ({
+      id: u.id,
+      nome: u.nome,
+      email: u.email,
+      role: u.role,
+      secretaria_id: u.secretaria_id as string,
+      ativo: u.ativo,
+    }))
+    .sort((a, b) => a.nome.localeCompare(b.nome));
 }
 
 export async function createSecretaria(

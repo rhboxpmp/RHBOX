@@ -40,6 +40,15 @@ export interface Secretaria {
   created_at: string;
 }
 
+export interface SecretariaResponsavel {
+  id: string;
+  nome: string;
+  email: string;
+  role: UserRole;
+  secretaria_id: string;
+  ativo: boolean;
+}
+
 export interface UserAccount {
   id: string;
   nome: string;
