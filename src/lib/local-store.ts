@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import type {
   ActivityLog,
@@ -20,7 +21,9 @@ export interface LocalDatabase {
   activity_logs: ActivityLog[];
 }
 
-const DATA_DIR = path.join(process.cwd(), ".data");
+const DATA_DIR = process.env.VERCEL
+  ? path.join(os.tmpdir(), "rhbox-data")
+  : path.join(process.cwd(), ".data");
 const DATA_FILE = path.join(DATA_DIR, "rhbox-local.json");
 
 function createInitialSeed(): LocalDatabase {
