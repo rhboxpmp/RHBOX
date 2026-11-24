@@ -1,0 +1,14 @@
+@import "tailwindcss";
+
+@theme inline {
+  --color-gov-blue: #041A47;
+  --color-gov-accent: #0047B3;
+  --color-gov-bg: #F4F7FC;
+  --font-sans: "Inter", "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+body {
+  background-color: #F4F7FC;
+  color: #1E293B;
+  font-family: var(--font-sans);
+}
