@@ -3,7 +3,7 @@
 import { useActionState, useState } from "react";
 import Image from "next/image";
 import { loginAction } from "@/app/actions";
-import { Lock, Mail, ShieldAlert, FlaskConical } from "lucide-react";
+import { Eye, EyeOff, Lock, Mail, ShieldAlert, FlaskConical } from "lucide-react";
 
 const LOCAL_PROFILES = [
   {
@@ -30,6 +30,7 @@ export default function LoginPage() {
   const [state, formAction, isPending] = useActionState(loginAction, null);
   const [email, setEmail] = useState(SHOW_LOCAL_DEMO ? "admin@planalto.local" : "");
   const [password, setPassword] = useState(SHOW_LOCAL_DEMO ? "123456" : "");
+  const [showPassword, setShowPassword] = useState(false);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#041A47] via-[#0B2B6B] to-[#0047B3] p-4">
@@ -86,13 +87,22 @@ export default function LoginPage() {
                 <Lock size={15} className="absolute left-3 top-2.5 text-slate-400" />
                 <input
                   name="password"
-                  type="password"
+                  type={showPassword ? "text" : "password"}
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••"
-                  className="w-full pl-9 pr-3 py-2 text-sm rounded-lg border border-slate-300 focus:border-[#0047B3] focus:ring-2 focus:ring-[#0047B3]/25 focus:outline-none"
+                  className="w-full pl-9 pr-10 py-2 text-sm rounded-lg border border-slate-300 focus:border-[#0047B3] focus:ring-2 focus:ring-[#0047B3]/25 focus:outline-none"
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((prev) => !prev)}
+                  aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
+                  title={showPassword ? "Ocultar senha" : "Mostrar senha"}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-[#041A47] transition-colors cursor-pointer"
+                >
+                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
               </div>
             </div>
 
