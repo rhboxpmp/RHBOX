@@ -155,8 +155,8 @@ export default function LoginPage() {
       </div>
 
       {/* Versículo na parte inferior sobre o fundo azul */}
-      <footer className="w-full max-w-3xl text-center px-4 pb-2">
-        <p className="font-script text-2xl sm:text-3xl md:text-[34px] leading-snug text-[#F6D365] drop-shadow-[0_2px_10px_rgba(0,0,0,0.4)]">
+      <footer className="w-full max-w-6xl text-center px-4 pb-2">
+        <p className="font-script text-[clamp(1.15rem,2.4vw,2.15rem)] sm:whitespace-nowrap leading-snug text-[#F6D365] drop-shadow-[0_2px_10px_rgba(0,0,0,0.4)]">
           “Tudo quanto te vier à mão para fazer, faze-o conforme as tuas forças.”
         </p>
         <p className="mt-1.5 text-xs sm:text-sm font-semibold tracking-[0.2em] uppercase text-[#FCE7A2]/90">
