@@ -98,17 +98,15 @@ function InstantWorkspaceInner() {
       {/* Sidebar Instantânea com Identidade Visual Oficial RHBOX */}
       <aside className="w-64 shrink-0 bg-[#041A47] text-white flex flex-col justify-between shadow-lg">
         <div>
-          <div className="p-3.5 border-b border-white/10">
-            <div className="mx-auto w-[156px] h-[156px] rounded-xl overflow-hidden border border-white/15 shadow-md">
-              <Image
-                src="/brand/rhbox-sidebar-emblem.jpg"
-                alt="Prefeitura de Planalto — RHBOX"
-                width={312}
-                height={312}
-                priority
-                className="w-full h-full object-cover"
-              />
-            </div>
+          <div className="border-b border-white/10">
+            <Image
+              src="/brand/rhbox-sidebar-emblem.jpg"
+              alt="Prefeitura de Planalto — RHBOX"
+              width={512}
+              height={512}
+              priority
+              className="w-full h-auto block object-cover"
+            />
           </div>
 
           <nav className="p-3 space-y-1">
