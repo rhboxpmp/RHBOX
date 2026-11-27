@@ -13,6 +13,17 @@ import {
 } from "@/types/rh";
 import { Plus, Search, X, Eye } from "lucide-react";
 
+function formatTelefoneBR(value: string): string {
+  const d = value.replace(/\D/g, "").slice(0, 11);
+  if (d.length === 0) return "";
+  if (d.length <= 2) return `(${d}`;
+  if (d.length <= 6) return `(${d.slice(0, 2)}) ${d.slice(2)}`;
+  if (d.length <= 10) {
+    return `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}`;
+  }
+  return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`;
+}
+
 export function FuncionariosClient({
   funcionarios,
   secretarias,
@@ -31,6 +42,7 @@ export function FuncionariosClient({
   const [search, setSearch] = useState("");
   const [secFilter, setSecFilter] = useState("todos");
   const [open, setOpen] = useState(openInitially);
+  const [telefone, setTelefone] = useState("");
   const [error, setError] = useState<string | null>(null);
   const { toast, showToast, clearToast } = useSuccessToast();
   const [pending, startTransition] = useTransition();
@@ -63,6 +75,7 @@ export function FuncionariosClient({
       if (!res.ok) setError(res.error || "Erro ao cadastrar servidor.");
       else {
         setOpen(false);
+        setTelefone("");
         showToast("Servidor cadastrado!", `${nome} (Mat. ${matricula})`);
         await onMutated?.();
       }
@@ -84,6 +97,7 @@ export function FuncionariosClient({
           type="button"
           onClick={() => {
             setError(null);
+            setTelefone("");
             setOpen(true);
           }}
           className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[#041A47] hover:bg-[#003A94] text-white text-xs font-semibold cursor-pointer"
@@ -301,6 +315,11 @@ export function FuncionariosClient({
                   <label className="block font-semibold mb-1">Telefone</label>
                   <input
                     name="telefone"
+                    type="tel"
+                    inputMode="numeric"
+                    maxLength={15}
+                    value={telefone}
+                    onChange={(e) => setTelefone(formatTelefoneBR(e.target.value))}
                     className="w-full px-3 py-2 rounded-lg border border-[#D0D5DD]"
                     placeholder="(77) 99999-0000"
                   />
