@@ -95,17 +95,26 @@ function InstantWorkspaceInner() {
 
   return (
     <div className="flex min-h-screen bg-[#F4F7FC]">
-      {/* Sidebar Fixa Instantânea com Identidade Visual Oficial RHBOX */}
-      <aside className="sticky top-0 h-screen w-60 shrink-0 bg-[#041A47] text-white flex flex-col justify-between overflow-hidden shadow-lg">
-        <div className="flex-1 min-h-0 flex flex-col">
-          <div className="shrink-0 w-full h-[176px] border-b border-white/10 overflow-hidden bg-[#021238]">
+      {/* Sidebar Fixa Instantânea com Fundo Contínuo e Logo Transparente */}
+      <aside className="relative sticky top-0 h-screen w-60 shrink-0 bg-[#041A47] text-white flex flex-col justify-between overflow-hidden shadow-lg">
+        <Image
+          src="/brand/sidebar-bg.jpg"
+          alt=""
+          fill
+          priority
+          sizes="240px"
+          className="object-cover object-center pointer-events-none select-none"
+        />
+
+        <div className="relative z-10 flex-1 min-h-0 flex flex-col">
+          <div className="shrink-0 px-3 pt-3 pb-2.5 border-b border-white/15">
             <Image
-              src="/brand/rhbox-sidebar-emblem.jpg"
+              src="/brand/rhbox-sidebar-logo.png"
               alt="Prefeitura de Planalto — RHBOX"
-              width={480}
-              height={480}
+              width={440}
+              height={293}
               priority
-              className="w-full h-full object-cover object-[50%_35%]"
+              className="w-full h-auto object-contain drop-shadow-[0_2px_8px_rgba(0,0,0,0.45)]"
             />
           </div>
 
@@ -123,8 +132,8 @@ function InstantWorkspaceInner() {
                   onClick={() => navigate({ section: item.section })}
                   className={`w-full flex items-center gap-3 px-3.5 py-2 rounded-lg text-[13px] font-semibold transition-colors cursor-pointer text-left ${
                     active
-                      ? "bg-[#0047B3] text-white shadow-sm"
-                      : "text-blue-100/85 hover:bg-white/10 hover:text-white"
+                      ? "bg-[#0047B3]/90 text-white shadow-sm ring-1 ring-white/20"
+                      : "text-blue-50/90 hover:bg-white/12 hover:text-white"
                   }`}
                 >
                   <Icon size={18} className="shrink-0" />
@@ -135,10 +144,10 @@ function InstantWorkspaceInner() {
           </nav>
         </div>
 
-        <div className="shrink-0 px-3 py-2.5 border-t border-white/10 space-y-2">
-          <div className="rounded-lg bg-white/8 px-3 py-2">
+        <div className="relative z-10 shrink-0 px-3 py-2.5 border-t border-white/15 space-y-2">
+          <div className="rounded-lg bg-white/10 border border-white/10 px-3 py-2 backdrop-blur-[2px]">
             <div className="text-xs font-bold truncate">{user.nome}</div>
-            <div className="text-[11px] text-blue-300 font-medium leading-tight mt-0.5 truncate">
+            <div className="text-[11px] text-blue-200 font-medium leading-tight mt-0.5 truncate">
               {ROLE_LABELS[user.role]}
               {user.secretaria_sigla ? ` · ${user.secretaria_sigla}` : ""}
             </div>
@@ -147,7 +156,7 @@ function InstantWorkspaceInner() {
           <form action={logoutAction}>
             <button
               type="submit"
-              className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-lg bg-white/10 hover:bg-white/20 text-[13px] font-semibold text-white transition-colors cursor-pointer"
+              className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-lg bg-white/12 hover:bg-white/22 border border-white/10 text-[13px] font-semibold text-white transition-colors cursor-pointer"
             >
               <LogOut size={15} />
               <span>Sair</span>
