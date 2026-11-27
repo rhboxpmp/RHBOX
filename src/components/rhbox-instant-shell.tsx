@@ -99,14 +99,14 @@ function InstantWorkspaceInner() {
       <aside className="w-64 shrink-0 bg-[#041A47] text-white flex flex-col justify-between shadow-lg">
         <div>
           <div className="p-3.5 border-b border-white/10">
-            <div className="bg-white rounded-xl px-3 py-3.5 shadow-sm flex items-center justify-center">
+            <div className="mx-auto w-[156px] h-[156px] rounded-xl overflow-hidden border border-white/15 shadow-md">
               <Image
-                src="/brand/rhbox-logo.png"
-                alt="RHBOX"
-                width={220}
-                height={70}
+                src="/brand/rhbox-sidebar-emblem.jpg"
+                alt="Prefeitura de Planalto — RHBOX"
+                width={312}
+                height={312}
                 priority
-                className="w-full max-w-[205px] h-auto object-contain"
+                className="w-full h-full object-cover"
               />
             </div>
           </div>
