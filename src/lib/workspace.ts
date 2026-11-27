@@ -1,6 +1,9 @@
 import {
   listActivityLogs,
   listAtestados,
+  listFeriadosMunicipais,
+  listFrequenciaFechamentos,
+  listFrequenciaMensal,
   listFuncionarios,
   listMovimentacoes,
   listOcorrencias,
@@ -12,7 +15,10 @@ import { isSupabaseConfigured } from "@/lib/supabase";
 import type {
   ActivityLog,
   Atestado,
+  FeriadoMunicipal,
   FeriasAfastamento,
+  FrequenciaFechamento,
+  FrequenciaMensal,
   Funcionario,
   Ocorrencia,
   Secretaria,
@@ -29,6 +35,9 @@ export interface WorkspaceSnapshot {
   atestados: Atestado[];
   movimentacoes: FeriasAfastamento[];
   ocorrencias: Ocorrencia[];
+  feriadosMunicipais: FeriadoMunicipal[];
+  frequencias: FrequenciaMensal[];
+  frequenciaFechamentos: FrequenciaFechamento[];
   users: UserAccount[];
   logs: ActivityLog[];
 }
@@ -43,6 +52,9 @@ export async function loadWorkspaceSnapshot(
     atestados,
     movimentacoes,
     ocorrencias,
+    feriadosMunicipais,
+    frequencias,
+    frequenciaFechamentos,
     users,
     logs,
   ] = await Promise.all([
@@ -52,6 +64,9 @@ export async function loadWorkspaceSnapshot(
     listAtestados(user),
     listMovimentacoes(user),
     listOcorrencias(user),
+    listFeriadosMunicipais(),
+    listFrequenciaMensal(user),
+    listFrequenciaFechamentos(user),
     user.role === "admin" ? listUsers(user) : Promise.resolve([]),
     user.role === "admin" ? listActivityLogs(user) : Promise.resolve([]),
   ]);
@@ -65,6 +80,9 @@ export async function loadWorkspaceSnapshot(
     atestados,
     movimentacoes,
     ocorrencias,
+    feriadosMunicipais,
+    frequencias,
+    frequenciaFechamentos,
     users,
     logs,
   };

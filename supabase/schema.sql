@@ -303,3 +303,80 @@ INSERT INTO public.secretarias (nome, sigla, responsavel) VALUES
     ('Secretaria de Educação', 'SMEC', 'Coordenação Pedagógica'),
     ('Secretaria de Infraestrutura', 'SEINFRA', 'Diretoria de Obras')
 ON CONFLICT (sigla) DO NOTHING;
+
+-- ==============================================================================
+-- MÓDULO PONTO / FREQUÊNCIA MENSAL + FERIADOS MUNICIPAIS
+-- ==============================================================================
+
+-- 8. FERIADOS MUNICIPAIS / PONTOS FACULTATIVOS (gerenciados por RH Geral / Admin)
+CREATE TABLE IF NOT EXISTS public.feriados_municipais (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    data DATE NOT NULL,
+    descricao TEXT NOT NULL,
+    tipo TEXT NOT NULL DEFAULT 'feriado_municipal' CHECK (tipo IN ('feriado_municipal', 'ponto_facultativo')),
+    recorrente_anual BOOLEAN NOT NULL DEFAULT FALSE,
+    registrado_por TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc', now())
+);
+
+-- 9. FREQUÊNCIA MENSAL CONSOLIDADA POR SERVIDOR (competência YYYY-MM)
+CREATE TABLE IF NOT EXISTS public.frequencia_mensal (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    funcionario_id UUID NOT NULL REFERENCES public.funcionarios(id) ON DELETE CASCADE,
+    secretaria_id UUID NOT NULL REFERENCES public.secretarias(id) ON DELETE RESTRICT,
+    competencia TEXT NOT NULL CHECK (competencia ~ '^\d{4}-\d{2}$'),
+    faltas_injustificadas INTEGER NOT NULL DEFAULT 0 CHECK (faltas_injustificadas >= 0),
+    faltas_justificadas INTEGER NOT NULL DEFAULT 0 CHECK (faltas_justificadas >= 0),
+    abonos INTEGER NOT NULL DEFAULT 0 CHECK (abonos >= 0),
+    horas_extras_50 NUMERIC(6,2) NOT NULL DEFAULT 0 CHECK (horas_extras_50 >= 0),
+    horas_extras_100 NUMERIC(6,2) NOT NULL DEFAULT 0 CHECK (horas_extras_100 >= 0),
+    adicional_noturno NUMERIC(6,2) NOT NULL DEFAULT 0 CHECK (adicional_noturno >= 0),
+    plantoes INTEGER NOT NULL DEFAULT 0 CHECK (plantoes >= 0),
+    outros_adicionais TEXT,
+    observacoes TEXT,
+    registrado_por TEXT NOT NULL,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc', now()),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc', now()),
+    UNIQUE (funcionario_id, competencia)
+);
+
+-- 10. FECHAMENTO MENSAL DE FREQUÊNCIA POR SECRETARIA
+CREATE TABLE IF NOT EXISTS public.frequencia_fechamentos (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    secretaria_id UUID NOT NULL REFERENCES public.secretarias(id) ON DELETE CASCADE,
+    competencia TEXT NOT NULL CHECK (competencia ~ '^\d{4}-\d{2}$'),
+    status TEXT NOT NULL DEFAULT 'aberto' CHECK (status IN ('aberto', 'fechado_secretaria', 'conferido_rh')),
+    fechado_por TEXT,
+    fechado_em TIMESTAMPTZ,
+    conferido_por TEXT,
+    conferido_em TIMESTAMPTZ,
+    observacao TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc', now()),
+    UNIQUE (secretaria_id, competencia)
+);
+
+CREATE INDEX IF NOT EXISTS idx_feriados_data ON public.feriados_municipais(data);
+CREATE INDEX IF NOT EXISTS idx_freq_mensal_sec_comp ON public.frequencia_mensal(secretaria_id, competencia);
+CREATE INDEX IF NOT EXISTS idx_freq_fech_sec_comp ON public.frequencia_fechamentos(secretaria_id, competencia);
+
+ALTER TABLE public.feriados_municipais ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.frequencia_mensal ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.frequencia_fechamentos ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "feriados_select" ON public.feriados_municipais;
+CREATE POLICY "feriados_select" ON public.feriados_municipais FOR SELECT TO authenticated USING (true);
+
+DROP POLICY IF EXISTS "feriados_manage" ON public.feriados_municipais;
+CREATE POLICY "feriados_manage" ON public.feriados_municipais FOR ALL TO authenticated
+    USING ((SELECT public.my_role()) IN ('admin', 'rh_geral'))
+    WITH CHECK ((SELECT public.my_role()) IN ('admin', 'rh_geral'));
+
+DROP POLICY IF EXISTS "freq_mensal_scope" ON public.frequencia_mensal;
+CREATE POLICY "freq_mensal_scope" ON public.frequencia_mensal FOR ALL TO authenticated
+    USING ((SELECT public.can_access_secretaria(secretaria_id)))
+    WITH CHECK ((SELECT public.can_access_secretaria(secretaria_id)));
+
+DROP POLICY IF EXISTS "freq_fech_scope" ON public.frequencia_fechamentos;
+CREATE POLICY "freq_fech_scope" ON public.frequencia_fechamentos FOR ALL TO authenticated
+    USING ((SELECT public.can_access_secretaria(secretaria_id)))
+    WITH CHECK ((SELECT public.can_access_secretaria(secretaria_id)));

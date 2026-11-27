@@ -16,6 +16,7 @@ export type SectionId =
   | "secretarias"
   | "atestados"
   | "ferias"
+  | "ponto"
   | "ocorrencias"
   | "relatorios"
   | "admin";
@@ -35,6 +36,7 @@ export function parsePathToRoute(pathname: string, role: string): RouteState {
   if (pathname.startsWith("/secretarias")) return { section: "secretarias" };
   if (pathname.startsWith("/atestados")) return { section: "atestados" };
   if (pathname.startsWith("/ferias-afastamentos")) return { section: "ferias" };
+  if (pathname.startsWith("/ponto-frequencia")) return { section: "ponto" };
   if (pathname.startsWith("/ocorrencias")) return { section: "ocorrencias" };
   if (pathname.startsWith("/relatorios")) return { section: "relatorios" };
   if (pathname.startsWith("/admin") && role === "admin") return { section: "admin" };
@@ -53,6 +55,8 @@ export function routeToPath(route: RouteState): string {
       return "/atestados";
     case "ferias":
       return "/ferias-afastamentos";
+    case "ponto":
+      return "/ponto-frequencia";
     case "ocorrencias":
       return "/ocorrencias";
     case "relatorios":

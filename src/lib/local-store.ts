@@ -4,7 +4,10 @@ import path from "node:path";
 import type {
   ActivityLog,
   Atestado,
+  FeriadoMunicipal,
   FeriasAfastamento,
+  FrequenciaFechamento,
+  FrequenciaMensal,
   Funcionario,
   Ocorrencia,
   Secretaria,
@@ -19,6 +22,9 @@ export interface LocalDatabase {
   ferias_afastamentos: FeriasAfastamento[];
   ocorrencias: Ocorrencia[];
   activity_logs: ActivityLog[];
+  feriados_municipais: FeriadoMunicipal[];
+  frequencia_mensal: FrequenciaMensal[];
+  frequencia_fechamentos: FrequenciaFechamento[];
 }
 
 const DATA_DIR = process.env.VERCEL
@@ -299,6 +305,19 @@ function createInitialSeed(): LocalDatabase {
         created_at: now,
       },
     ],
+    feriados_municipais: [
+      {
+        id: "80000000-0000-4000-8000-000000000001",
+        data: "2026-06-24",
+        descricao: "São João (Feriado Municipal Exemplo)",
+        tipo: "feriado_municipal",
+        recorrente_anual: true,
+        registrado_por: "Gestão RH Geral",
+        created_at: now,
+      },
+    ],
+    frequencia_mensal: [],
+    frequencia_fechamentos: [],
   };
 }
 
@@ -311,7 +330,19 @@ export function readLocalDb(): LocalDatabase {
       return seed;
     }
     const raw = fs.readFileSync(DATA_FILE, "utf8");
-    return JSON.parse(raw) as LocalDatabase;
+    const parsed = JSON.parse(raw) as Partial<LocalDatabase>;
+    return {
+      secretarias: parsed.secretarias ?? [],
+      users: parsed.users ?? [],
+      funcionarios: parsed.funcionarios ?? [],
+      atestados: parsed.atestados ?? [],
+      ferias_afastamentos: parsed.ferias_afastamentos ?? [],
+      ocorrencias: parsed.ocorrencias ?? [],
+      activity_logs: parsed.activity_logs ?? [],
+      feriados_municipais: parsed.feriados_municipais ?? [],
+      frequencia_mensal: parsed.frequencia_mensal ?? [],
+      frequencia_fechamentos: parsed.frequencia_fechamentos ?? [],
+    };
   } catch {
     return createInitialSeed();
   }

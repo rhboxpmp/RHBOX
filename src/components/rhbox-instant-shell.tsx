@@ -9,6 +9,7 @@ import {
   Building2,
   Stethoscope,
   CalendarDays,
+  CalendarCheck2,
   ClipboardList,
   FileBarChart2,
   ShieldCheck,
@@ -34,6 +35,7 @@ import { FuncionariosClient } from "./funcionarios-client";
 import { SecretariasClient } from "./secretarias-client";
 import { AtestadosClient } from "./atestados-client";
 import { MovimentacoesClient } from "./movimentacoes-client";
+import { PontoClient } from "./ponto-client";
 import { OcorrenciasClient } from "./ocorrencias-client";
 import { RelatoriosClient } from "./relatorios-client";
 import { AdminClient } from "./admin-client";
@@ -51,6 +53,7 @@ const NAV_ITEMS: NavItem[] = [
   { section: "secretarias", label: "Secretarias", icon: Building2 },
   { section: "atestados", label: "Atestados", icon: Stethoscope },
   { section: "ferias", label: "Férias e Afastamentos", icon: CalendarDays },
+  { section: "ponto", label: "Ponto / Frequência", icon: CalendarCheck2 },
   { section: "ocorrencias", label: "Ocorrências", icon: ClipboardList },
   { section: "relatorios", label: "Relatórios", icon: FileBarChart2 },
   { section: "admin", label: "Admin & Logs", icon: ShieldCheck, adminOnly: true },
@@ -67,6 +70,9 @@ function InstantWorkspaceInner() {
     atestados,
     movimentacoes,
     ocorrencias,
+    feriadosMunicipais,
+    frequencias,
+    frequenciaFechamentos,
     users,
     logs,
   } = data;
@@ -240,6 +246,20 @@ function InstantWorkspaceInner() {
               itens={movimentacoes}
               funcionarios={funcionarios}
               openInitially={Boolean(route.openNew)}
+              onMutated={refreshWorkspace}
+            />
+          )}
+
+          {route.section === "ponto" && (
+            <PontoClient
+              user={user}
+              secretarias={secretarias}
+              funcionarios={funcionarios}
+              atestados={atestados}
+              movimentacoes={movimentacoes}
+              feriadosMunicipais={feriadosMunicipais}
+              frequencias={frequencias}
+              fechamentos={frequenciaFechamentos}
               onMutated={refreshWorkspace}
             />
           )}

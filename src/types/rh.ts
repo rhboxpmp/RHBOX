@@ -31,6 +31,13 @@ export type TipoOcorrencia =
   | "portaria"
   | "outro";
 
+export type TipoFeriadoMunicipal = "feriado_municipal" | "ponto_facultativo";
+
+export type StatusFechamentoFrequencia =
+  | "aberto"
+  | "fechado_secretaria"
+  | "conferido_rh";
+
 export interface Secretaria {
   id: string;
   nome: string;
@@ -144,6 +151,53 @@ export interface ActivityLog {
   created_at: string;
 }
 
+export interface FeriadoMunicipal {
+  id: string;
+  data: string; // YYYY-MM-DD
+  descricao: string;
+  tipo: TipoFeriadoMunicipal;
+  recorrente_anual: boolean;
+  registrado_por: string;
+  created_at: string;
+}
+
+export interface FrequenciaMensal {
+  id: string;
+  funcionario_id: string;
+  funcionario_nome?: string;
+  funcionario_matricula?: string;
+  funcionario_cargo?: string;
+  secretaria_id: string;
+  secretaria_sigla?: string;
+  competencia: string; // YYYY-MM
+  faltas_injustificadas: number;
+  faltas_justificadas: number;
+  abonos: number;
+  horas_extras_50: number;
+  horas_extras_100: number;
+  adicional_noturno: number;
+  plantoes: number;
+  outros_adicionais: string | null;
+  observacoes: string | null;
+  registrado_por: string;
+  updated_at: string;
+  created_at: string;
+}
+
+export interface FrequenciaFechamento {
+  id: string;
+  secretaria_id: string;
+  secretaria_sigla?: string;
+  competencia: string; // YYYY-MM
+  status: StatusFechamentoFrequencia;
+  fechado_por: string | null;
+  fechado_em: string | null;
+  conferido_por: string | null;
+  conferido_em: string | null;
+  observacao: string | null;
+  created_at: string;
+}
+
 export const ROLE_LABELS: Record<UserRole, string> = {
   admin: "Administrador",
   rh_geral: "RH Geral",
@@ -173,4 +227,13 @@ export const OCORRENCIA_LABELS: Record<TipoOcorrencia, string> = {
   capacitacao: "Capacitação / Curso",
   portaria: "Portaria / Ato",
   outro: "Outro Registro",
+};
+
+export const FECHAMENTO_STATUS_LABELS: Record<
+  StatusFechamentoFrequencia,
+  string
+> = {
+  aberto: "Em preenchimento",
+  fechado_secretaria: "Fechado pela Secretaria",
+  conferido_rh: "Conferido pelo RH Geral",
 };

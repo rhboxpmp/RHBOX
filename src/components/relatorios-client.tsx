@@ -37,11 +37,25 @@ export function RelatoriosClient({
   const [secId, setSecId] = useState(
     user.role === "rh_secretaria" && user.secretaria_id ? user.secretaria_id : ""
   );
+  const [competencia, setCompetencia] = useState(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  });
 
   function buildUrl(tipo: string, formato: "csv" | "pdf") {
     const sp = new URLSearchParams({ tipo, formato });
     if (secId) sp.set("secretariaId", secId);
     return `/api/relatorios/export?${sp.toString()}`;
+  }
+
+  function buildBoletimPontoUrl(formato: "csv" | "pdf") {
+    const sp = new URLSearchParams({
+      modo: "boletim",
+      formato,
+      competencia,
+    });
+    if (secId) sp.set("secretariaId", secId);
+    return `/api/ponto/export?${sp.toString()}`;
   }
 
   return (
@@ -105,6 +119,43 @@ export function RelatoriosClient({
             </div>
           </div>
         ))}
+
+        <div className="bg-white rounded-xl border border-[#E2E8F0] p-5 shadow-2xs flex flex-col justify-between gap-4">
+          <div className="space-y-2">
+            <h2 className="text-sm font-bold text-[#041A47]">
+              Boletim Mensal de Ponto / Frequência
+            </h2>
+            <p className="text-xs text-[#667085]">
+              Totais consolidados por servidor: faltas, abonos, atestados, afastamentos, horas extras, noturno e plantões.
+            </p>
+            <div className="pt-1 flex items-center gap-2 text-xs">
+              <label className="font-semibold text-[#344054]">Competência:</label>
+              <input
+                type="month"
+                value={competencia}
+                onChange={(e) => e.target.value && setCompetencia(e.target.value)}
+                className="px-2.5 py-1 rounded-lg border border-[#D0D5DD] font-semibold text-[#041A47]"
+              />
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <a
+              href={buildBoletimPontoUrl("pdf")}
+              className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-[#041A47] hover:bg-[#003A94] text-white text-xs font-semibold transition-colors"
+            >
+              <FileText size={14} />
+              Baixar PDF
+            </a>
+            <a
+              href={buildBoletimPontoUrl("csv")}
+              className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-[#0047B3] hover:bg-[#003A94] text-white text-xs font-semibold transition-colors"
+            >
+              <FileSpreadsheet size={14} />
+              Baixar CSV
+              <Download size={12} />
+            </a>
+          </div>
+        </div>
       </div>
     </div>
   );

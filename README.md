@@ -10,6 +10,7 @@ Aplicação web enxuta e instantânea desenvolvida com **Next.js 15 (App Router)
 - **Secretarias** — organização de pastas e contagem automática de servidores
 - **Atestados Médicos** — lançamento direto, cálculo automático de dias, anexo e aprovação/rejeição
 - **Férias, Licenças e Afastamentos** — controle unificado por categoria e status
+- **Ponto / Frequência Mensal** — folha de ponto PDF para impressão (1 ou 2 turnos, calendário Bahia/Brasil + feriados municipais), lançamento mensal de faltas, abonos, extras e relatório individual/boletim
 - **Ocorrências Funcionais** — registro de elogios, advertências, capacitações, transferências e portarias
 - **Relatórios (PDF e CSV)** — exportação imediata pronta para Excel e impressão
 - **Admin & Logs** — gestão dos 3 perfis (`admin`, `rh_geral`, `rh_secretaria`) e logs de atividade/suporte

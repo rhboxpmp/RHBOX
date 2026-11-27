@@ -8,23 +8,29 @@ import { readLocalDb } from "@/lib/local-store";
 import { LOCAL_SESSION_COOKIE, requireUser } from "@/lib/auth";
 import {
   createAtestado,
+  createFeriadoMunicipal,
   createFuncionario,
   createLocalOrSupabaseUser,
   createMovimentacao,
   createOcorrencia,
   createSecretaria,
+  deleteFeriadoMunicipal,
   recordActivityLog,
   toggleSecretaria,
   toggleUserActive,
   updateAtestadoStatus,
+  updateFrequenciaFechamento,
   updateFuncionarioSituacao,
   updateMovimentacaoStatus,
+  upsertFrequenciaMensal,
 } from "@/lib/db";
 import type {
   CategoriaMovimentacao,
   SituacaoFuncionario,
   StatusAtestado,
+  StatusFechamentoFrequencia,
   StatusMovimentacao,
+  TipoFeriadoMunicipal,
   TipoOcorrencia,
   UserRole,
   VinculoTipo,
@@ -288,5 +294,59 @@ export async function toggleUserActiveAction(id: string, ativo: boolean) {
   const user = await requireUser(["admin"]);
   const res = await toggleUserActive(user, id, ativo);
   if (res.ok) revalidatePath("/admin");
+  return res;
+}
+
+export async function createFeriadoMunicipalAction(formData: FormData) {
+  const user = await requireUser(["admin", "rh_geral"]);
+  const res = await createFeriadoMunicipal(user, {
+    data: String(formData.get("data") || ""),
+    descricao: String(formData.get("descricao") || ""),
+    tipo: (formData.get("tipo") as TipoFeriadoMunicipal) || "feriado_municipal",
+    recorrente_anual: formData.get("recorrente_anual") === "on",
+  });
+  if (res.ok) revalidatePath("/ponto-frequencia");
+  return res;
+}
+
+export async function deleteFeriadoMunicipalAction(id: string) {
+  const user = await requireUser(["admin", "rh_geral"]);
+  const res = await deleteFeriadoMunicipal(user, id);
+  if (res.ok) revalidatePath("/ponto-frequencia");
+  return res;
+}
+
+export async function saveFrequenciaMensalAction(formData: FormData) {
+  const user = await requireUser();
+  const res = await upsertFrequenciaMensal(user, {
+    funcionario_id: String(formData.get("funcionario_id") || ""),
+    competencia: String(formData.get("competencia") || ""),
+    faltas_injustificadas: Number(formData.get("faltas_injustificadas") || 0),
+    faltas_justificadas: Number(formData.get("faltas_justificadas") || 0),
+    abonos: Number(formData.get("abonos") || 0),
+    horas_extras_50: Number(formData.get("horas_extras_50") || 0),
+    horas_extras_100: Number(formData.get("horas_extras_100") || 0),
+    adicional_noturno: Number(formData.get("adicional_noturno") || 0),
+    plantoes: Number(formData.get("plantoes") || 0),
+    outros_adicionais: String(formData.get("outros_adicionais") || ""),
+    observacoes: String(formData.get("observacoes") || ""),
+  });
+  if (res.ok) revalidatePath("/ponto-frequencia");
+  return res;
+}
+
+export async function updateFrequenciaFechamentoAction(
+  secretariaId: string,
+  competencia: string,
+  nextStatus: StatusFechamentoFrequencia
+) {
+  const user = await requireUser();
+  const res = await updateFrequenciaFechamento(
+    user,
+    secretariaId,
+    competencia,
+    nextStatus
+  );
+  if (res.ok) revalidatePath("/ponto-frequencia");
   return res;
 }

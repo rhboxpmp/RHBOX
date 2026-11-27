@@ -10,14 +10,19 @@ import type {
   ActivityLog,
   Atestado,
   CategoriaMovimentacao,
+  FeriadoMunicipal,
   FeriasAfastamento,
+  FrequenciaFechamento,
+  FrequenciaMensal,
   Funcionario,
   Ocorrencia,
   Secretaria,
   SecretariaResponsavel,
   SituacaoFuncionario,
   StatusAtestado,
+  StatusFechamentoFrequencia,
   StatusMovimentacao,
+  TipoFeriadoMunicipal,
   TipoOcorrencia,
   UserAccount,
   UserRole,
@@ -968,4 +973,378 @@ export async function listActivityLogs(user: UserAccount): Promise<ActivityLog[]
     return (data || []) as ActivityLog[];
   }
   return readLocalDb().activity_logs;
+}
+
+// ============================================================================
+// PONTO / FREQUÊNCIA MENSAL & FERIADOS MUNICIPAIS
+// ============================================================================
+export async function listFeriadosMunicipais(): Promise<FeriadoMunicipal[]> {
+  if (isSupabaseConfigured()) {
+    const sb = await createSupabaseServer();
+    const { data } = await sb
+      .from("feriados_municipais")
+      .select("*")
+      .order("data");
+    return (data || []) as FeriadoMunicipal[];
+  }
+  return [...readLocalDb().feriados_municipais].sort((a, b) =>
+    a.data.localeCompare(b.data)
+  );
+}
+
+export async function createFeriadoMunicipal(
+  user: UserAccount,
+  input: {
+    data: string;
+    descricao: string;
+    tipo: TipoFeriadoMunicipal;
+    recorrente_anual: boolean;
+  }
+): Promise<{ ok: boolean; error?: string }> {
+  if (user.role !== "admin" && user.role !== "rh_geral") {
+    return {
+      ok: false,
+      error: "Apenas RH Geral ou Administrador pode cadastrar feriados municipais.",
+    };
+  }
+  const desc = input.descricao.trim();
+  if (!input.data || !desc) {
+    return { ok: false, error: "Informe a data e a descrição do feriado." };
+  }
+
+  const id = crypto.randomUUID();
+  if (isSupabaseConfigured()) {
+    const sb = await createSupabaseServer();
+    const { error } = await sb.from("feriados_municipais").insert({
+      id,
+      data: input.data,
+      descricao: desc,
+      tipo: input.tipo,
+      recorrente_anual: input.recorrente_anual,
+      registrado_por: user.nome,
+    });
+    if (error) return { ok: false, error: error.message };
+  } else {
+    const db = readLocalDb();
+    db.feriados_municipais.push({
+      id,
+      data: input.data,
+      descricao: desc,
+      tipo: input.tipo,
+      recorrente_anual: input.recorrente_anual,
+      registrado_por: user.nome,
+      created_at: new Date().toISOString(),
+    });
+    writeLocalDb(db);
+  }
+
+  await recordActivityLog({
+    user,
+    modulo: "ponto",
+    acao: "Feriado municipal cadastrado",
+    detalhes: `${input.data} — ${desc} (${input.tipo})`,
+  });
+  return { ok: true };
+}
+
+export async function deleteFeriadoMunicipal(
+  user: UserAccount,
+  id: string
+): Promise<{ ok: boolean; error?: string }> {
+  if (user.role !== "admin" && user.role !== "rh_geral") {
+    return {
+      ok: false,
+      error: "Apenas RH Geral ou Administrador pode remover feriados municipais.",
+    };
+  }
+  if (isSupabaseConfigured()) {
+    const sb = await createSupabaseServer();
+    const { error } = await sb.from("feriados_municipais").delete().eq("id", id);
+    if (error) return { ok: false, error: error.message };
+  } else {
+    const db = readLocalDb();
+    db.feriados_municipais = db.feriados_municipais.filter((f) => f.id !== id);
+    writeLocalDb(db);
+  }
+
+  await recordActivityLog({
+    user,
+    modulo: "ponto",
+    acao: "Feriado municipal removido",
+    detalhes: `ID: ${id}`,
+  });
+  return { ok: true };
+}
+
+export async function listFrequenciaMensal(
+  user: UserAccount,
+  competencia?: string
+): Promise<FrequenciaMensal[]> {
+  if (isSupabaseConfigured()) {
+    const sb = await createSupabaseServer();
+    let q = sb
+      .from("frequencia_mensal")
+      .select("*, funcionarios(nome, matricula, cargo), secretarias(sigla)")
+      .order("competencia", { ascending: false });
+    if (user.role === "rh_secretaria" && user.secretaria_id) {
+      q = q.eq("secretaria_id", user.secretaria_id);
+    }
+    if (competencia) {
+      q = q.eq("competencia", competencia);
+    }
+    const { data } = await q;
+    return (data || []).map((row: Record<string, unknown>) => {
+      const f = Array.isArray(row.funcionarios)
+        ? (row.funcionarios[0] as { nome?: string; matricula?: string; cargo?: string } | undefined)
+        : (row.funcionarios as { nome?: string; matricula?: string; cargo?: string } | null);
+      const s = Array.isArray(row.secretarias)
+        ? (row.secretarias[0] as { sigla?: string } | undefined)
+        : (row.secretarias as { sigla?: string } | null);
+      return {
+        ...(row as unknown as FrequenciaMensal),
+        faltas_injustificadas: Number(row.faltas_injustificadas || 0),
+        faltas_justificadas: Number(row.faltas_justificadas || 0),
+        abonos: Number(row.abonos || 0),
+        horas_extras_50: Number(row.horas_extras_50 || 0),
+        horas_extras_100: Number(row.horas_extras_100 || 0),
+        adicional_noturno: Number(row.adicional_noturno || 0),
+        plantoes: Number(row.plantoes || 0),
+        funcionario_nome: f?.nome,
+        funcionario_matricula: f?.matricula,
+        funcionario_cargo: f?.cargo,
+        secretaria_sigla: s?.sigla,
+      };
+    });
+  }
+
+  const db = readLocalDb();
+  const fMap = new Map(db.funcionarios.map((f) => [f.id, f]));
+  const sMap = new Map(db.secretarias.map((s) => [s.id, s]));
+  return db.frequencia_mensal
+    .filter(
+      (r) =>
+        canSeeSecretaria(user, r.secretaria_id) &&
+        (!competencia || r.competencia === competencia)
+    )
+    .map((r) => ({
+      ...r,
+      funcionario_nome: fMap.get(r.funcionario_id)?.nome,
+      funcionario_matricula: fMap.get(r.funcionario_id)?.matricula,
+      funcionario_cargo: fMap.get(r.funcionario_id)?.cargo,
+      secretaria_sigla: sMap.get(r.secretaria_id)?.sigla,
+    }));
+}
+
+export async function listFrequenciaFechamentos(
+  user: UserAccount
+): Promise<FrequenciaFechamento[]> {
+  if (isSupabaseConfigured()) {
+    const sb = await createSupabaseServer();
+    let q = sb
+      .from("frequencia_fechamentos")
+      .select("*, secretarias(sigla)")
+      .order("competencia", { ascending: false });
+    if (user.role === "rh_secretaria" && user.secretaria_id) {
+      q = q.eq("secretaria_id", user.secretaria_id);
+    }
+    const { data } = await q;
+    return (data || []).map((row: Record<string, unknown>) => {
+      const s = Array.isArray(row.secretarias)
+        ? (row.secretarias[0] as { sigla?: string } | undefined)
+        : (row.secretarias as { sigla?: string } | null);
+      return {
+        ...(row as unknown as FrequenciaFechamento),
+        secretaria_sigla: s?.sigla,
+      };
+    });
+  }
+
+  const db = readLocalDb();
+  const sMap = new Map(db.secretarias.map((s) => [s.id, s]));
+  return db.frequencia_fechamentos
+    .filter((f) => canSeeSecretaria(user, f.secretaria_id))
+    .map((f) => ({
+      ...f,
+      secretaria_sigla: sMap.get(f.secretaria_id)?.sigla,
+    }));
+}
+
+export async function upsertFrequenciaMensal(
+  user: UserAccount,
+  input: {
+    funcionario_id: string;
+    competencia: string;
+    faltas_injustificadas: number;
+    faltas_justificadas: number;
+    abonos: number;
+    horas_extras_50: number;
+    horas_extras_100: number;
+    adicional_noturno: number;
+    plantoes: number;
+    outros_adicionais?: string;
+    observacoes?: string;
+  }
+): Promise<{ ok: boolean; error?: string }> {
+  if (!/^\d{4}-\d{2}$/.test(input.competencia)) {
+    return { ok: false, error: "Competência inválida." };
+  }
+  const func = await getFuncionarioById(user, input.funcionario_id);
+  if (!func) {
+    return { ok: false, error: "Servidor não localizado no seu escopo." };
+  }
+
+  const fechamentos = await listFrequenciaFechamentos(user);
+  const fech = fechamentos.find(
+    (f) => f.secretaria_id === func.secretaria_id && f.competencia === input.competencia
+  );
+  if (fech && fech.status !== "aberto" && user.role === "rh_secretaria") {
+    return {
+      ok: false,
+      error: "A frequência desta competência já foi fechada. Solicite ao RH Geral a reabertura caso precise alterar.",
+    };
+  }
+
+  const payload = {
+    funcionario_id: func.id,
+    secretaria_id: func.secretaria_id,
+    competencia: input.competencia,
+    faltas_injustificadas: Math.max(0, Math.trunc(input.faltas_injustificadas || 0)),
+    faltas_justificadas: Math.max(0, Math.trunc(input.faltas_justificadas || 0)),
+    abonos: Math.max(0, Math.trunc(input.abonos || 0)),
+    horas_extras_50: Math.max(0, Number(input.horas_extras_50 || 0)),
+    horas_extras_100: Math.max(0, Number(input.horas_extras_100 || 0)),
+    adicional_noturno: Math.max(0, Number(input.adicional_noturno || 0)),
+    plantoes: Math.max(0, Math.trunc(input.plantoes || 0)),
+    outros_adicionais: input.outros_adicionais?.trim() || null,
+    observacoes: input.observacoes?.trim() || null,
+    registrado_por: user.nome,
+    updated_at: new Date().toISOString(),
+  };
+
+  if (isSupabaseConfigured()) {
+    const sb = await createSupabaseServer();
+    const { error } = await sb
+      .from("frequencia_mensal")
+      .upsert(payload, { onConflict: "funcionario_id,competencia" });
+    if (error) return { ok: false, error: error.message };
+  } else {
+    const db = readLocalDb();
+    const idx = db.frequencia_mensal.findIndex(
+      (r) =>
+        r.funcionario_id === func.id && r.competencia === input.competencia
+    );
+    if (idx >= 0) {
+      db.frequencia_mensal[idx] = {
+        ...db.frequencia_mensal[idx],
+        ...payload,
+      };
+    } else {
+      db.frequencia_mensal.push({
+        id: crypto.randomUUID(),
+        ...payload,
+        created_at: payload.updated_at,
+      });
+    }
+    writeLocalDb(db);
+  }
+
+  await recordActivityLog({
+    user,
+    modulo: "ponto",
+    acao: `Frequência salva (${input.competencia})`,
+    detalhes: `${func.nome} — Faltas: ${payload.faltas_injustificadas}I/${payload.faltas_justificadas}J, Abonos: ${payload.abonos}, HE50: ${payload.horas_extras_50}h, HE100: ${payload.horas_extras_100}h`,
+  });
+  return { ok: true };
+}
+
+export async function updateFrequenciaFechamento(
+  user: UserAccount,
+  secretariaId: string,
+  competencia: string,
+  nextStatus: StatusFechamentoFrequencia
+): Promise<{ ok: boolean; error?: string }> {
+  const targetSec =
+    user.role === "rh_secretaria" && user.secretaria_id
+      ? user.secretaria_id
+      : secretariaId;
+
+  if (!targetSec || !/^\d{4}-\d{2}$/.test(competencia)) {
+    return { ok: false, error: "Secretaria ou competência inválida." };
+  }
+  if (!canSeeSecretaria(user, targetSec)) {
+    return { ok: false, error: "Sem permissão para esta secretaria." };
+  }
+  if (user.role === "rh_secretaria" && nextStatus !== "fechado_secretaria") {
+    return {
+      ok: false,
+      error: "Apenas RH Geral ou Administrador pode conferir ou reabrir uma competência.",
+    };
+  }
+
+  const now = new Date().toISOString();
+  if (isSupabaseConfigured()) {
+    const sb = await createSupabaseServer();
+    const { data: existing } = await sb
+      .from("frequencia_fechamentos")
+      .select("*")
+      .eq("secretaria_id", targetSec)
+      .eq("competencia", competencia)
+      .maybeSingle();
+
+    const record = {
+      secretaria_id: targetSec,
+      competencia,
+      status: nextStatus,
+      fechado_por:
+        nextStatus === "fechado_secretaria"
+          ? user.nome
+          : existing?.fechado_por || (nextStatus === "conferido_rh" ? user.nome : null),
+      fechado_em:
+        nextStatus === "fechado_secretaria"
+          ? now
+          : existing?.fechado_em || (nextStatus === "conferido_rh" ? now : null),
+      conferido_por: nextStatus === "conferido_rh" ? user.nome : null,
+      conferido_em: nextStatus === "conferido_rh" ? now : null,
+    };
+
+    const { error } = await sb
+      .from("frequencia_fechamentos")
+      .upsert(record, { onConflict: "secretaria_id,competencia" });
+    if (error) return { ok: false, error: error.message };
+  } else {
+    const db = readLocalDb();
+    const idx = db.frequencia_fechamentos.findIndex(
+      (f) => f.secretaria_id === targetSec && f.competencia === competencia
+    );
+    const existing = idx >= 0 ? db.frequencia_fechamentos[idx] : null;
+    const nextRow: FrequenciaFechamento = {
+      id: existing?.id || crypto.randomUUID(),
+      secretaria_id: targetSec,
+      competencia,
+      status: nextStatus,
+      fechado_por:
+        nextStatus === "fechado_secretaria"
+          ? user.nome
+          : existing?.fechado_por || (nextStatus === "conferido_rh" ? user.nome : null),
+      fechado_em:
+        nextStatus === "fechado_secretaria"
+          ? now
+          : existing?.fechado_em || (nextStatus === "conferido_rh" ? now : null),
+      conferido_por: nextStatus === "conferido_rh" ? user.nome : null,
+      conferido_em: nextStatus === "conferido_rh" ? now : null,
+      observacao: existing?.observacao || null,
+      created_at: existing?.created_at || now,
+    };
+    if (idx >= 0) db.frequencia_fechamentos[idx] = nextRow;
+    else db.frequencia_fechamentos.push(nextRow);
+    writeLocalDb(db);
+  }
+
+  await recordActivityLog({
+    user,
+    modulo: "ponto",
+    acao: `Competência ${competencia} marcada como ${nextStatus}`,
+    detalhes: `Secretaria ID: ${targetSec}`,
+  });
+  return { ok: true };
 }
