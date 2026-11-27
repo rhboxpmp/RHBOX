@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { createUserAction, toggleUserActiveAction } from "@/app/actions";
+import { SuccessToast, useSuccessToast } from "./success-toast";
 import {
   ROLE_LABELS,
   type ActivityLog,
@@ -40,6 +41,7 @@ export function AdminClient({
   const [showPassword, setShowPassword] = useState(false);
   const [logSearch, setLogSearch] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const { toast, showToast, clearToast } = useSuccessToast();
   const [pending, startTransition] = useTransition();
 
   const filteredLogs = logs.filter((l) => {
@@ -57,11 +59,14 @@ export function AdminClient({
     e.preventDefault();
     setError(null);
     const fd = new FormData(e.currentTarget);
+    const nome = String(fd.get("nome") || "").trim();
+    const email = String(fd.get("email") || "").trim().toLowerCase();
     startTransition(async () => {
       const res = await createUserAction(fd);
       if (!res.ok) setError(res.error || "Erro ao criar usuário.");
       else {
         setOpen(false);
+        showToast("Usuário cadastrado!", `${nome} (${email})`);
         await onMutated?.();
       }
     });
@@ -93,6 +98,8 @@ export function AdminClient({
           Novo Usuário
         </button>
       </div>
+
+      <SuccessToast toast={toast} onClose={clearToast} />
 
       {/* Status do Sistema */}
       <div className="bg-white rounded-xl border border-[#E2E8F0] p-4 flex flex-wrap items-center justify-between gap-3 text-xs">

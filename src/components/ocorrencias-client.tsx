@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { createOcorrenciaAction } from "@/app/actions";
+import { SuccessToast, useSuccessToast } from "./success-toast";
 import {
   OCORRENCIA_LABELS,
   type Funcionario,
@@ -22,6 +23,7 @@ export function OcorrenciasClient({
   const [open, setOpen] = useState(false);
   const [tipoFilter, setTipoFilter] = useState("todos");
   const [error, setError] = useState<string | null>(null);
+  const { toast, showToast, clearToast } = useSuccessToast();
   const [pending, startTransition] = useTransition();
 
   const filtered = ocorrencias.filter(
@@ -32,11 +34,18 @@ export function OcorrenciasClient({
     e.preventDefault();
     setError(null);
     const fd = new FormData(e.currentTarget);
+    const titulo = String(fd.get("titulo") || "").trim();
+    const funcId = String(fd.get("funcionario_id") || "");
+    const funcNome = funcionarios.find((f) => f.id === funcId)?.nome || "";
     startTransition(async () => {
       const res = await createOcorrenciaAction(fd);
       if (!res.ok) setError(res.error || "Erro ao registrar ocorrência.");
       else {
         setOpen(false);
+        showToast(
+          "Ocorrência registrada!",
+          funcNome ? `${funcNome} · ${titulo}` : titulo
+        );
         await onMutated?.();
       }
     });
@@ -44,6 +53,7 @@ export function OcorrenciasClient({
 
   return (
     <div className="space-y-5">
+      <SuccessToast toast={toast} onClose={clearToast} />
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold text-[#041A47] flex items-center gap-2">

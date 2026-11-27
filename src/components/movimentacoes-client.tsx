@@ -5,6 +5,7 @@ import {
   createMovimentacaoAction,
   updateMovimentacaoStatusAction,
 } from "@/app/actions";
+import { SuccessToast, useSuccessToast } from "./success-toast";
 import type {
   CategoriaMovimentacao,
   FeriasAfastamento,
@@ -35,6 +36,7 @@ export function MovimentacoesClient({
   const [fim, setFim] = useState(new Date().toISOString().slice(0, 10));
   const [dias, setDias] = useState(30);
   const [error, setError] = useState<string | null>(null);
+  const { toast, showToast, clearToast } = useSuccessToast();
   const [pending, startTransition] = useTransition();
 
   function recalc(s: string, e: string) {
@@ -51,11 +53,18 @@ export function MovimentacoesClient({
     e.preventDefault();
     setError(null);
     const fd = new FormData(e.currentTarget);
+    const subtipo = String(fd.get("subtipo") || "Lançamento");
+    const funcId = String(fd.get("funcionario_id") || "");
+    const funcNome = funcionarios.find((f) => f.id === funcId)?.nome || "";
     startTransition(async () => {
       const res = await createMovimentacaoAction(fd);
       if (!res.ok) setError(res.error || "Erro ao salvar.");
       else {
         setOpen(false);
+        showToast(
+          "Registro salvo!",
+          funcNome ? `${funcNome} · ${subtipo}` : subtipo
+        );
         await onMutated?.();
       }
     });
@@ -65,6 +74,7 @@ export function MovimentacoesClient({
 
   return (
     <div className="space-y-5">
+      <SuccessToast toast={toast} onClose={clearToast} />
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold text-[#041A47] flex items-center gap-2">

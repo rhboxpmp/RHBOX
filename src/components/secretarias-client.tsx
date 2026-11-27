@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { createSecretariaAction, toggleSecretariaAction } from "@/app/actions";
+import { SuccessToast, useSuccessToast } from "./success-toast";
 import {
   ROLE_LABELS,
   type Secretaria,
@@ -27,6 +28,7 @@ export function SecretariasClient({
 }) {
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { toast, showToast, clearToast } = useSuccessToast();
   const [pending, startTransition] = useTransition();
   const canManage = userRole === "admin" || userRole === "rh_geral";
 
@@ -41,11 +43,14 @@ export function SecretariasClient({
     e.preventDefault();
     setError(null);
     const fd = new FormData(e.currentTarget);
+    const sigla = String(fd.get("sigla") || "").trim().toUpperCase();
+    const nome = String(fd.get("nome") || "").trim();
     startTransition(async () => {
       const res = await createSecretariaAction(fd);
       if (!res.ok) setError(res.error || "Erro ao cadastrar.");
       else {
         setOpen(false);
+        showToast("Secretaria cadastrada!", `${sigla} — ${nome}`);
         await onMutated?.();
       }
     });
@@ -53,6 +58,7 @@ export function SecretariasClient({
 
   return (
     <div className="space-y-6">
+      <SuccessToast toast={toast} onClose={clearToast} />
       <div className="flex items-center justify-between gap-4">
         <div>
           <h1 className="text-xl font-bold text-[#041A47]">

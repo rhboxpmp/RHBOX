@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { createAtestadoAction, updateAtestadoStatusAction } from "@/app/actions";
+import { SuccessToast, useSuccessToast } from "./success-toast";
 import type { Atestado, Funcionario } from "@/types/rh";
 import { Plus, Stethoscope, X, Check, Ban, Paperclip } from "lucide-react";
 
@@ -22,6 +23,7 @@ export function AtestadosClient({
   const [fim, setFim] = useState(new Date().toISOString().slice(0, 10));
   const [dias, setDias] = useState(1);
   const [error, setError] = useState<string | null>(null);
+  const { toast, showToast, clearToast } = useSuccessToast();
   const [pending, startTransition] = useTransition();
 
   function recalcDays(s: string, e: string) {
@@ -38,11 +40,15 @@ export function AtestadosClient({
     e.preventDefault();
     setError(null);
     const fd = new FormData(e.currentTarget);
+    const tipo = String(fd.get("tipo") || "Atestado Médico");
+    const funcId = String(fd.get("funcionario_id") || "");
+    const funcNome = funcionarios.find((f) => f.id === funcId)?.nome || "";
     startTransition(async () => {
       const res = await createAtestadoAction(fd);
       if (!res.ok) setError(res.error || "Erro ao lançar atestado.");
       else {
         setOpen(false);
+        showToast("Atestado registrado!", funcNome ? `${funcNome} · ${tipo}` : tipo);
         await onMutated?.();
       }
     });
@@ -54,6 +60,7 @@ export function AtestadosClient({
 
   return (
     <div className="space-y-5">
+      <SuccessToast toast={toast} onClose={clearToast} />
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold text-[#041A47] flex items-center gap-2">

@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { createFuncionarioAction } from "@/app/actions";
+import { SuccessToast, useSuccessToast } from "./success-toast";
 import {
   SITUACAO_LABELS,
   VINCULO_LABELS,
@@ -31,6 +32,7 @@ export function FuncionariosClient({
   const [secFilter, setSecFilter] = useState("todos");
   const [open, setOpen] = useState(openInitially);
   const [error, setError] = useState<string | null>(null);
+  const { toast, showToast, clearToast } = useSuccessToast();
   const [pending, startTransition] = useTransition();
 
   const filtered = funcionarios.filter((f) => {
@@ -54,11 +56,14 @@ export function FuncionariosClient({
     e.preventDefault();
     setError(null);
     const fd = new FormData(e.currentTarget);
+    const nome = String(fd.get("nome") || "").trim();
+    const matricula = String(fd.get("matricula") || "").trim();
     startTransition(async () => {
       const res = await createFuncionarioAction(fd);
       if (!res.ok) setError(res.error || "Erro ao cadastrar servidor.");
       else {
         setOpen(false);
+        showToast("Servidor cadastrado!", `${nome} (Mat. ${matricula})`);
         await onMutated?.();
       }
     });
@@ -66,6 +71,7 @@ export function FuncionariosClient({
 
   return (
     <div className="space-y-5">
+      <SuccessToast toast={toast} onClose={clearToast} />
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold text-[#041A47]">Funcionários</h1>

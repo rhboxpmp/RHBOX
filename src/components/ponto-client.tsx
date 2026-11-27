@@ -7,6 +7,7 @@ import {
   saveFrequenciaMensalAction,
   updateFrequenciaFechamentoAction,
 } from "@/app/actions";
+import { SuccessToast, useSuccessToast } from "./success-toast";
 import {
   countDiasUteis,
   formatCompetenciaLabel,
@@ -86,6 +87,7 @@ export function PontoClient({
     type: "ok" | "err";
     text: string;
   } | null>(null);
+  const { toast, showToast, clearToast } = useSuccessToast();
   const [pending, startTransition] = useTransition();
 
   // Modais
@@ -229,16 +231,14 @@ export function PontoClient({
     e.preventDefault();
     setFeedback(null);
     const fd = new FormData(e.currentTarget);
+    const targetNome = editTarget?.nome || "";
     startTransition(async () => {
       const res = await saveFrequenciaMensalAction(fd);
       if (!res.ok) {
         setFeedback({ type: "err", text: res.error || "Erro ao salvar." });
       } else {
         setEditTarget(null);
-        setFeedback({
-          type: "ok",
-          text: "Frequência do servidor salva com sucesso.",
-        });
+        showToast("Frequência salva!", targetNome);
         await onMutated?.();
       }
     });
@@ -256,10 +256,10 @@ export function PontoClient({
       if (!res.ok) {
         setFeedback({ type: "err", text: res.error || "Erro ao atualizar status." });
       } else {
-        setFeedback({
-          type: "ok",
-          text: `Competência atualizada para: ${FECHAMENTO_STATUS_LABELS[next]}.`,
-        });
+        showToast(
+          "Competência atualizada!",
+          FECHAMENTO_STATUS_LABELS[next]
+        );
         await onMutated?.();
       }
     });
@@ -270,16 +270,14 @@ export function PontoClient({
     setFeedback(null);
     const form = e.currentTarget;
     const fd = new FormData(form);
+    const desc = String(fd.get("descricao") || "").trim();
     startTransition(async () => {
       const res = await createFeriadoMunicipalAction(fd);
       if (!res.ok) {
         setFeedback({ type: "err", text: res.error || "Erro ao cadastrar feriado." });
       } else {
         form.reset();
-        setFeedback({
-          type: "ok",
-          text: "Feriado municipal adicionado ao calendário.",
-        });
+        showToast("Feriado cadastrado!", desc);
         await onMutated?.();
       }
     });
@@ -335,6 +333,7 @@ export function PontoClient({
 
   return (
     <div className="space-y-6">
+      <SuccessToast toast={toast} onClose={clearToast} />
       {/* Cabeçalho */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div>
