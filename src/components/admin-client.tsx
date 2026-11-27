@@ -16,6 +16,8 @@ import {
   Plus,
   X,
   Database,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 
 export function AdminClient({
@@ -35,6 +37,7 @@ export function AdminClient({
 }) {
   const [open, setOpen] = useState(false);
   const [role, setRole] = useState<UserRole>("rh_secretaria");
+  const [showPassword, setShowPassword] = useState(false);
   const [logSearch, setLogSearch] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -81,6 +84,7 @@ export function AdminClient({
           type="button"
           onClick={() => {
             setError(null);
+            setShowPassword(false);
             setOpen(true);
           }}
           className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[#041A47] hover:bg-[#003A94] text-white text-xs font-semibold cursor-pointer"
@@ -275,13 +279,24 @@ export function AdminClient({
               </div>
               <div>
                 <label className="block font-semibold mb-1">Senha Inicial *</label>
-                <input
-                  name="password"
-                  type="password"
-                  required
-                  defaultValue="123456"
-                  className="w-full px-3 py-2 rounded-lg border border-[#D0D5DD]"
-                />
+                <div className="relative">
+                  <input
+                    name="password"
+                    type={showPassword ? "text" : "password"}
+                    required
+                    defaultValue="123456"
+                    className="w-full pl-3 pr-9 py-2 rounded-lg border border-[#D0D5DD]"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((prev) => !prev)}
+                    aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
+                    title={showPassword ? "Ocultar senha" : "Mostrar senha"}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-[#041A47] transition-colors cursor-pointer"
+                  >
+                    {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+                  </button>
+                </div>
               </div>
               <div>
                 <label className="block font-semibold mb-1">Perfil *</label>
