@@ -18,6 +18,8 @@ import {
   ArrowLeft,
 } from "lucide-react";
 import { logoutAction, updateFuncionarioSituacaoAction } from "@/app/actions";
+import { formatCompetenciaLabel } from "@/lib/calendario-ba";
+import { getCoberturaMensalServidor } from "@/lib/ponto-utils";
 import type { WorkspaceSnapshot } from "@/lib/workspace";
 import {
   OCORRENCIA_LABELS,
@@ -210,7 +212,9 @@ function InstantWorkspaceInner() {
               atestados={atestados}
               movimentacoes={movimentacoes}
               ocorrencias={ocorrencias}
+              frequencias={frequencias}
               onBack={() => navigate({ section: "funcionarios" })}
+              onOpenPonto={() => navigate({ section: "ponto" })}
               onMutated={refreshWorkspace}
             />
           )}
@@ -539,7 +543,9 @@ function FichaInstantView({
   atestados,
   movimentacoes,
   ocorrencias,
+  frequencias,
   onBack,
+  onOpenPonto,
   onMutated,
 }: {
   fichaId: string;
@@ -547,7 +553,9 @@ function FichaInstantView({
   atestados: WorkspaceSnapshot["atestados"];
   movimentacoes: WorkspaceSnapshot["movimentacoes"];
   ocorrencias: WorkspaceSnapshot["ocorrencias"];
+  frequencias: WorkspaceSnapshot["frequencias"];
   onBack: () => void;
+  onOpenPonto: () => void;
   onMutated?: () => Promise<void>;
 }) {
   const [pending, startTransition] = useTransition();
@@ -570,6 +578,28 @@ function FichaInstantView({
   const funcAtest = atestados.filter((a) => a.funcionario_id === func.id);
   const funcMovs = movimentacoes.filter((m) => m.funcionario_id === func.id);
   const funcOcorr = ocorrencias.filter((o) => o.funcionario_id === func.id);
+  const funcFreqs = frequencias
+    .filter((r) => r.funcionario_id === func.id)
+    .sort((a, b) => b.competencia.localeCompare(a.competencia));
+
+  const compAtual = new Date().toISOString().slice(0, 7);
+  const cobAtual = getCoberturaMensalServidor(
+    func.id,
+    compAtual,
+    atestados,
+    movimentacoes
+  );
+  const resumoFreq = funcFreqs.reduce(
+    (acc, r) => ({
+      faltas: acc.faltas + r.faltas_injustificadas + r.faltas_justificadas,
+      abonos: acc.abonos + r.abonos,
+      he50: acc.he50 + r.horas_extras_50,
+      he100: acc.he100 + r.horas_extras_100,
+      noturno: acc.noturno + r.adicional_noturno,
+      plantoes: acc.plantoes + r.plantoes,
+    }),
+    { faltas: 0, abonos: 0, he50: 0, he100: 0, noturno: 0, plantoes: 0 }
+  );
 
   function handleChangeSituacao(next: SituacaoFuncionario) {
     if (!func || next === func.situacao) return;
@@ -646,6 +676,124 @@ function FichaInstantView({
             {func.telefone || func.email || "Não informado"}
           </div>
         </div>
+      </div>
+
+      {/* Frequência Mensal do Servidor */}
+      <div className="bg-white rounded-xl border border-[#E2E8F0] p-5 space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h2 className="text-sm font-bold text-[#041A47] flex items-center gap-2">
+              <CalendarCheck2 size={16} className="text-[#0047B3]" />
+              Ponto e Frequência ({funcFreqs.length} competência(s) lançada(s))
+            </h2>
+            <p className="text-[11px] text-[#667085] mt-0.5">
+              Mês atual ({formatCompetenciaLabel(compAtual)}): {cobAtual.atestadoDias}d atestado ·{" "}
+              {cobAtual.afastamentoDias}d férias/afastamento
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2 text-xs">
+            <a
+              href={`/api/ponto/export?modo=individual&formato=pdf&competencia=${compAtual}&escopo=ano&funcionarioId=${func.id}`}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#041A47] hover:bg-[#003A94] text-white font-semibold"
+            >
+              Relatório Individual (PDF)
+            </a>
+            <button
+              type="button"
+              onClick={onOpenPonto}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#D0D5DD] hover:border-[#0047B3] text-[#041A47] font-semibold cursor-pointer"
+            >
+              Abrir Aba Ponto
+            </button>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 text-xs">
+          <div className="rounded-lg bg-[#F8FAFC] border border-[#EEF2F6] p-2.5">
+            <div className="text-[10px] text-[#667085] font-semibold uppercase">Faltas</div>
+            <div className="font-bold text-[#041A47] mt-0.5">{resumoFreq.faltas} dia(s)</div>
+          </div>
+          <div className="rounded-lg bg-[#F8FAFC] border border-[#EEF2F6] p-2.5">
+            <div className="text-[10px] text-[#667085] font-semibold uppercase">Abonos</div>
+            <div className="font-bold text-emerald-700 mt-0.5">{resumoFreq.abonos} dia(s)</div>
+          </div>
+          <div className="rounded-lg bg-[#F8FAFC] border border-[#EEF2F6] p-2.5">
+            <div className="text-[10px] text-[#667085] font-semibold uppercase">HE 50%</div>
+            <div className="font-bold text-[#041A47] mt-0.5">{resumoFreq.he50}h</div>
+          </div>
+          <div className="rounded-lg bg-[#F8FAFC] border border-[#EEF2F6] p-2.5">
+            <div className="text-[10px] text-[#667085] font-semibold uppercase">HE 100%</div>
+            <div className="font-bold text-[#041A47] mt-0.5">{resumoFreq.he100}h</div>
+          </div>
+          <div className="rounded-lg bg-[#F8FAFC] border border-[#EEF2F6] p-2.5">
+            <div className="text-[10px] text-[#667085] font-semibold uppercase">Adic. Noturno</div>
+            <div className="font-bold text-[#041A47] mt-0.5">{resumoFreq.noturno}h</div>
+          </div>
+          <div className="rounded-lg bg-[#F8FAFC] border border-[#EEF2F6] p-2.5">
+            <div className="text-[10px] text-[#667085] font-semibold uppercase">Plantões</div>
+            <div className="font-bold text-[#041A47] mt-0.5">{resumoFreq.plantoes}</div>
+          </div>
+        </div>
+
+        {funcFreqs.length === 0 ? (
+          <p className="text-xs text-[#667085]">
+            Nenhum lançamento mensal de frequência registrado até o momento para este servidor.
+          </p>
+        ) : (
+          <div className="overflow-x-auto border border-[#EEF2F6] rounded-lg">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-[#F8FAFC] text-[#667085] uppercase font-semibold border-b border-[#E2E8F0]">
+                <tr>
+                  <th className="px-3 py-2">Competência</th>
+                  <th className="px-3 py-2">Atest. / Afast.</th>
+                  <th className="px-3 py-2">Faltas (I/J)</th>
+                  <th className="px-3 py-2">Abonos</th>
+                  <th className="px-3 py-2">Extras / Not. / Plant.</th>
+                  <th className="px-3 py-2">Adicionais / Obs.</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#EEF2F6]">
+                {funcFreqs.map((r) => {
+                  const cob = getCoberturaMensalServidor(
+                    func.id,
+                    r.competencia,
+                    atestados,
+                    movimentacoes
+                  );
+                  const obs = [r.outros_adicionais, r.observacoes]
+                    .filter(Boolean)
+                    .join(" · ");
+                  return (
+                    <tr key={r.id}>
+                      <td className="px-3 py-2 font-semibold text-[#041A47]">
+                        {formatCompetenciaLabel(r.competencia)}
+                      </td>
+                      <td className="px-3 py-2 text-[#667085]">
+                        {cob.atestadoDias}d / {cob.afastamentoDias}d
+                      </td>
+                      <td className="px-3 py-2">
+                        <span className={r.faltas_injustificadas > 0 ? "font-bold text-red-700" : ""}>
+                          {r.faltas_injustificadas}I
+                        </span>{" "}
+                        / {r.faltas_justificadas}J
+                      </td>
+                      <td className="px-3 py-2 font-semibold text-emerald-700">
+                        {r.abonos}d
+                      </td>
+                      <td className="px-3 py-2 text-[#344054]">
+                        HE50: {r.horas_extras_50}h · HE100: {r.horas_extras_100}h · Not: {r.adicional_noturno}h · Pl: {r.plantoes}
+                      </td>
+                      <td className="px-3 py-2 text-[#667085]">
+                        {obs || "-"}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
