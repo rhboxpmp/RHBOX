@@ -181,7 +181,7 @@ function InstantWorkspaceInner() {
           <div className="flex items-center gap-3 text-xs text-[#667085]">
             {user.secretaria_nome && (
               <span className="px-2.5 py-1 rounded-full bg-blue-50 text-[#0047B3] font-semibold border border-blue-200">
-                Escopo: {user.secretaria_sigla}
+                Secretaria: {user.secretaria_sigla}
               </span>
             )}
             <span className="hidden sm:inline">{user.email}</span>
