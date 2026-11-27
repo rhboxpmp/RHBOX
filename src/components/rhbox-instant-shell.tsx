@@ -103,8 +103,9 @@ function InstantWorkspaceInner() {
           fill
           priority
           sizes="240px"
-          className="object-cover object-center pointer-events-none select-none"
+          className="object-cover object-center pointer-events-none select-none opacity-65 saturate-50 brightness-90"
         />
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-[#041A47]/20 via-[#041A47]/40 to-[#041A47]/65" />
 
         <div className="relative z-10 flex-1 min-h-0 flex flex-col">
           <div className="shrink-0 px-3 pt-3 pb-2.5 border-b border-white/15">
